@@ -1,0 +1,202 @@
+
+a {
+	text-decoration: none; 
+}
+h1,h2,h3{
+    font-size: 1em;
+    margin: 0;
+}
+
+body {
+    font-family: Verdana, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    padding: 20px 10px;
+    width: 1200px;
+}
+
+.left-menu {
+	text-align: left;
+	max-width: 300px;
+	position: absolute;
+	left: 0px;
+}
+
+#textures img {
+	margin-top: 10px;
+}
+
+#controllers {
+	top: 350px;
+}
+
+#welcome {
+	text-align: left;
+	font-weight: bold;
+	font-size: 20px;
+	border-bottom: 1px solid #666666;
+	margin-bottom: 10px;
+	width: 1100px;
+}
+
+.light_theme {
+	background: white;
+	text-align: left;
+}
+.light_theme {
+	color: black;
+}
+.ligth_theme . a{
+    color: #9966FF;
+ }
+
+.dark_theme {
+	background: black;
+	text-align: left;
+}
+
+.dark_theme {
+	color: #cccccc;
+}
+.dark_theme a{
+    color: #9966FF;
+}
+
+.wrapper {
+	position: relative;
+	width: 1200px;
+	height: 400px;
+	display: block;
+}
+
+
+.wrapper canvas {
+	position: absolute;
+	left:50px;
+	top: 22px;
+
+	
+}
+
+.wrapper #canvas-bg {
+	position: absolute;
+	background-image:url('../img/mirror2.png');
+	width: 500px;
+	height: 372px;
+	background-size: cover;
+}
+.greyscale {
+	filter: url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><filter id=\'grayscale\'><feColorMatrix type=\'matrix\' values=\'0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0\'/></filter></svg>#grayscale"); /* Firefox 10+, Firefox on Android */
+    filter: gray;
+
+	 -webkit-filter: grayscale(100%);
+	 opacity: 0.6; 
+}
+
+.blury-canvas {
+	filter: blur(3px);
+	filter: url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><filter id=\'grayscale\'><feGaussianBlur in=\'SourceGraphic\' stdDeviation=\'2 3\' /></filter></svg>#grayscale"); /* Firefox 10+, Firefox on Android */
+	-webkit-filter: blur(3px);
+	z-index:-1;
+}
+
+.wrapper #controllers {
+	width: 400px;
+	position: absolute;
+	top: 0px;
+	left: 540px
+}
+
+#controllers fieldset {
+	border: 0px;
+    margin: 0px 0px 0px 3px;
+    padding: 0px 0px 0px 0px;
+    margin-top: 10px;
+}
+#controllers fieldset legend  {
+	font-weight: bold;
+	border-bottom: 1px solid black;
+	width: 100%;
+}
+#controllers fieldset input {
+	display: box;
+}
+
+
+#controllers fieldset .level {
+	position: relative;
+	float: left;
+	width: 46%;
+	margin-right: 10px;
+}
+.key {
+	display: inline;
+	font-weight: bold;
+	margin-right: 10px;
+}
+
+#select_anim {
+	margin-bottom: 10px;
+}
+#timeline, #help {
+	position: relative;
+	width: 510px
+}
+#timeline .buttons{
+	margin-top: 10px;
+}
+
+.right {
+	position: absolute;
+	right: 3px;
+}
+#help {
+	margin-top: 20px;
+}
+#help header {
+	font-size: 16px;
+	margin-bottom: 10px;
+}
+#help div {
+	padding-bottom: 10px;
+}
+
+#help .tip{
+	margin: 10px 0 10px 0;
+	font-size: 10px;
+}
+#help  em{
+	font-weight: bold;
+}
+#browser_support {
+	position: absolute;
+	bottom: 50px;
+	right: 50px;
+	text-align: right;
+}
+#browser_support img {
+	width: 40px;
+	height: 40px;
+}
+#references {
+	border:1px solid #;
+	-webkit-border-radius: 20px;
+	-moz-border-radius: 20px;
+	border-radius: 20px;  
+	border: 1px solid #ccc;
+	padding: 5px;
+}
+#references header{
+	font-weight: bold;
+}
+#references {
+	width: 300px;
+	position: absolute;
+	top: 50px;
+	right: 50px;
+	text-align: justify;
+}
+#references .centered {
+	text-align: center;
+}
+
+

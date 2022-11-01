@@ -1,0 +1,49 @@
+#timeline .label{
+	width: 70px;
+	display: inline-block;
+	text-align: right;
+	padding-right: 5px;
+}
+.line{
+	display: inline-block;
+	position: relative;
+	width: 420px;
+	height: 10px;
+	
+}
+
+.keyframes .line{
+	background-color: #ccc; 
+	border: solid 1px #999; 
+}
+
+.timeline .line{
+	background-color: #99CCCC; 
+	border: solid 1px #999; 
+}
+
+
+.keyframes .keyframe {
+	width: 8px;
+	height: 8px;
+	display: inline-block;
+	background: #400000;
+	border: 1px solid black;
+	position: absolute;
+	top:0;
+}
+.keyframes .keyframe.selected{
+	background: red;
+}
+
+.timeline .time {
+	width: 8px;
+	height: 8px;
+	display: inline-block;
+	background: #99FFFF;
+	border: 1px solid black;
+	position: absolute;
+	top:0;
+	border-radius:4px;
+}
+

@@ -1,0 +1,463 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+		<link rel="stylesheet" href="css/timeline.css" />
+
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+		<!-- README :
+			What is new this week? I create a new keyframe animation system that allows 
+			the user to create key-frames in any point of the timeline [scripts/keyframe/main.v2.js]
+
+			A create a new character, Pato [scripts/pato/pato.js], that can be modified to create animations. 
+			I created some animations that you can test [scripts/pato/data.js]
+
+		  -->
+		<script type="text/javascript" src="scripts/keyframe/main.v2.js"></script>
+		<script type="text/javascript" src="scripts/pato/pato.js"></script>
+        <script type="text/javascript" src="scripts/pato/data.js"></script>
+
+        
+        <script id="uv_mapping" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform vec3 lDir;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          uniform sampler2D uSampler;
+          uniform bool textureEnabled;
+          	
+		  void main(void) {
+		  	vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+            vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            if (textureEnabled){
+            	c = c * trgb;       
+            } 
+            gl_FragColor = vec4(gammaCorrect(c), 1.);
+          }
+      </script>
+
+      <script id="uv_eye" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform vec3 lDir;
+          uniform vec3 pupil;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          	
+		  void main(void) {
+		  	vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+
+            float d = distance(pupil.xy, vec2(2.0*vUV.x, 1.0*vUV.y));
+            
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            c = (d < pupil.z) ? vec3(0,0,0) : c;
+            gl_FragColor = vec4(gammaCorrect(c), 1.);
+          }
+      </script>
+      <script type="text/javascript">
+        (function() {
+        	
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+			
+			var id  = 0;
+			var startTime;
+        	var scene, pato;
+			
+			scene = CG.main.newScene("canvas");
+			var updateKeyframe = KeyFrame.updateEditMode;
+
+			/**
+			* Reads the current set of parameters from the dom and updates the actor
+			* TODO: should check if getting the values onchange improves performance				
+			**/
+			scene.update = function(time){
+				var data = { 
+					body:{}, 
+					head:{},
+					hat:{}, 
+					peak:{}, 
+					eye:{
+						left: { pupil:{}, eyelid:{}}, 
+						right:{ pupil:{}, eyelid:{}}
+					}
+				};
+				updateKeyframe(time);
+
+				
+
+				data.body.xrotation = document.getElementById("body.xrotation").value/10;
+				data.body.yrotation = document.getElementById("body.yrotation").value/10;
+				data.body.zrotation = document.getElementById("body.zrotation").value/10;
+				data.body.x = document.getElementById("body.x").value/10;
+				data.body.z = document.getElementById("body.z").value/5;
+
+
+				data.head.zrotation = document.getElementById("head.zrotation").value;
+				data.head.xrotation = document.getElementById("head.xrotation").value;
+
+				
+				data.hat.xrotation = document.getElementById("hat.x").value;
+				data.hat.zrotation = document.getElementById("hat.z").value;
+				
+				data.peak.sneer 		= document.getElementById("peak.x").value/90;
+				data.peak.twist 		= document.getElementById("peak.z").value/90;
+				data.peak.rotation 		= document.getElementById("peak.y").value/30;
+
+				data.eye.left.width 		= (document.getElementById("leye.w").value)/50;
+				data.eye.left.height 		= (document.getElementById("leye.h").value)/50;
+				data.eye.left.yrotation 	= (document.getElementById("leye.x").value/1)/50;
+				data.eye.left.pupil.x 		= (document.getElementById("leye.pupil.x").value/1 + 20)/50;
+				data.eye.left.pupil.y 		= (document.getElementById("leye.pupil.y").value/1 + 20)/50;
+				data.eye.left.pupil.size  	= (document.getElementById("leye.pupil.size").value/100);
+				data.eye.left.eyelid.top  	= (document.getElementById("leye.eyelid.top").value/50);
+				data.eye.left.eyelid.bottom  	= (document.getElementById("leye.eyelid.bottom").value/50);
+
+
+				data.eye.right.width 		= (document.getElementById("reye.w").value)/50;
+				data.eye.right.height 		= (document.getElementById("reye.h").value)/50;
+				data.eye.right.yrotation 	= (document.getElementById("reye.x").value)/50;
+				data.eye.right.pupil.x 		= (document.getElementById("reye.pupil.x").value/1 + 30)/50;
+				data.eye.right.pupil.y  	= (document.getElementById("reye.pupil.y").value/1 + 20)/50;
+				data.eye.right.pupil.size  	= (document.getElementById("reye.pupil.size").value/1)/100;
+				data.eye.right.eyelid.top  	= (document.getElementById("reye.eyelid.top").value/50);
+				data.eye.right.eyelid.bottom  	= (document.getElementById("reye.eyelid.bottom").value/50);
+
+				// update the actor with all the data
+				Pato.updateActor(pato, data, time);
+			}
+
+			/**
+			* Creates the actor for the scene and setups a bunch of event listeners for the UI 
+			**/
+			scene.setup = function() {
+
+				pato = Pato.newActor(scene);
+
+				var run = document.querySelector('#runanimation');
+				var pause = document.querySelector('#pauseanimation');
+				var resume = document.querySelector('#resumeanimation');
+				var stop = document.querySelector('#stopanimation');
+				var save = document.querySelector('#saveanimation');
+				var deleteframe = document.querySelector('#deleteframe');
+				var newanimation = document.querySelector('#newanimation');
+				
+				run.onclick = function(){
+					var time = ((new Date).getTime() - startTime) / 1000;
+					KeyFrame.run(time);
+					updateKeyframe = KeyFrame.updateRunMode;
+
+					// update buttons
+					run.disabled = true;
+					pause.disabled = false;
+					resume.disabled = true;
+					stop.disabled = false;
+					deleteframe.disabled = true;
+					newanimation.disabled = true;
+				}
+				stop.onclick = function(){
+					KeyFrame.stop();
+					updateKeyframe = KeyFrame.updateEditMode;
+
+					// update buttons
+					run.disabled = false;
+					pause.disabled = true;
+					resume.disabled = true;
+					stop.disabled = true;
+					deleteframe.disabled = false;
+					newanimation.disabled = false;
+				}
+
+				pause.onclick = function(){
+					KeyFrame.pause();
+
+					// update buttons
+					run.disabled = true;
+					pause.disabled = true;
+					resume.disabled = false;
+					stop.disabled = false;
+					deleteframe.disabled = true;
+					newanimation.disabled = false;
+				}
+				resume.onclick = function(){
+					KeyFrame.resume();
+
+					// update buttons
+					run.disabled = true;
+					pause.disabled = false;
+					resume.disabled = true;
+					stop.disabled = false;
+					deleteframe.disabled = true;
+					newanimation.disabled = true;
+				}
+				save.onclick = function(){
+					KeyFrame.saveAnimation();
+				}
+				deleteframe.onclick = function(){
+					KeyFrame.deleteCurrentkf();
+				}
+				newanimation.onclick = function(){
+					KeyFrame.newAnimation();
+				}
+				
+			}
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				startTime = (new Date).getTime();
+				_tick();
+
+				KeyFrame.initialize({defaults: Pato.DEFAULTS, animations: Pato.animations});
+
+
+				
+	        }
+			document.onkeydown = function(event) {
+				if(event.which == 13){
+					document.getElementById("field_" + id).focus();
+					id = (id + 1) % 10;
+					event.preventDefault();
+				}
+			}
+
+		})();
+        </script>
+    </head>
+    <body>
+    	<div class="wrapper">
+    	<canvas id="canvas" data-render="gl" width="400" height="300"></canvas>
+    	<div id="canvas-bg"  width="200" height="300"></div>
+    		
+
+	    <div id='controllers'>
+	    	<fieldset>
+		    	<legend id="field_0">Body</legend>
+		    	<div>
+		    		<label>rotation</label>
+		    		x: <input id="body.xrotation" type="number" min="-90" max="90" value="0"/>
+		    		y: <input id="body.yrotation" type="number" min="-90" max="90" value="0"/>
+		    		z: <input id="body.zrotation" type="number" min="-90" max="90" value="0"/>
+		    		
+		    	</div>
+		    	<div>
+		    		<label>move left/right</label>
+		    		<input id="body.x" type="number" min="-90" max="90" value="0"/>
+		    	</div>
+		    	<div>
+		    		<label>move front/back</label>
+		    		<input id="body.z" type="number" min="-90" max="90" value="0"/>
+		    	</div>
+		    	<fieldset>
+		    		<legend id="field_1">Head</legend>	
+		    		<div>
+		    			<label>left/right rotation</label>
+		    			<input id="head.zrotation" type="number" min="-90" max="90" value="0"/>
+		    		</div>
+		    		<div>
+		    			<label>front/back rotation</label>
+		    			<input id="head.xrotation" type="number" min="-90" max="90" value="0"/>
+		    		</div>
+		    		<fieldset class="level">
+		    			<legend id="field_2">Hat</legend>
+		    			<div>
+		    				<label>front/back angle</label>
+		    				<input id="hat.x" type="number" min="-90" max="90" value="0"/>
+		    			</div>
+		    			<div>
+							<label>left/right angle</label>
+							<input id="hat.z" type="number" min="-90" max="90" value="0"/>
+						</div>
+		  			</fieldset>
+				  	<fieldset class="level">
+				  		<legend id="field_3">Peak</legend>
+				  		<div>
+				    		<label>frown</label>
+				    		<input id="peak.x" type="number" min="-90" max="90" value="0"/>
+				    	</div>
+				    	<div>
+							<label>twist</label>
+							<input id="peak.z" type="number" min="-90" max="90" value="0"/>
+						</div>
+						<div>
+							<label>rotate</label>
+							<input id="peak.y" type="number" min="-90" max="90" value="0"/>
+						</div>
+				  </fieldset>
+		  		<fieldset>
+		  			<legend>Eyes</legend>
+			  		<fieldset class="level">
+			  			<legend id="field_4">Left</legend>
+			  			<div>
+			    			<label>width</label>
+			    			<input id="leye.w" type="number" min="1" max="90" value="30"/>
+			    		</div>
+			    		<div>
+							<label>height</label>
+							<input id="leye.h" type="number" min="1" max="90" value="35"/>
+						</div>
+						<div>
+							<label>left/right</label>
+							<input id="leye.x" type="number" min="-20" max="10" value="0"/>
+						</div>
+						<fieldset>
+							<legend id="field_5">Pupil</legend>
+							<div>
+								<label>left/right</label>
+								<input id="leye.pupil.x" type="number" min="-50" max="50" value="0"/>
+							</div>
+							<div>
+								<label>top/bottom</label>
+								<input id="leye.pupil.y" type="number" min="-50" max="50" value="0"/>
+							</div>
+							<div>
+								<label>radius</label>
+								<input id="leye.pupil.size" type="number" min="0" max="50" value="15"/>
+							</div>
+						</fieldset>
+						<fieldset>
+							<legend id="field_6">Eyelid</legend>
+							<div>
+								<label>top height</label>
+								<input id="leye.eyelid.top" type="number" min="0" max="50" value="0"/>
+							</div>
+							<div>
+								<label>bottom height</label>
+								<input id="leye.eyelid.bottom" type="number" min="0" max="50" value="0"/>
+							</div>	
+						</fieldset>
+					</fieldset>
+					<fieldset class="level">
+		  				<legend id="field_7" >Right</legend>
+		  				<div>
+		    				<label>width</label>
+		    				<input id="reye.w" type="number" min="1" max="90" value="30"/>
+		    			</div>
+		    			<div>
+							<label>height</label>
+							<input id="reye.h" type="number" min="1" max="90" value="25"/>
+						</div>
+						<div>
+							<label>left/right</label>
+							<input id="reye.x" type="number" min="-20" max="10" value="0"/>
+						</div>
+						<fieldset>
+							<legend id="field_8">Pupil</legend>
+							<div>
+								<label>left/right</label>
+								<input id="reye.pupil.x" type="number" min="-50" max="50" value="0"/>
+							</div>
+							<div>
+								<label>top/bottom</label>
+								<input id="reye.pupil.y" type="number" min="-50" max="50" value="0"/>
+							</div>
+							<div>
+								<label>radius</label>
+								<input id="reye.pupil.size" type="number" min="0" max="50" value="15"/></div>
+						</fieldset>
+						<fieldset>
+							<legend id="field_9">Eyelid</legend>
+							<div>
+								<label>top height</label>
+								<input id="reye.eyelid.top" type="number" min="0" max="50" value="0"/>
+							</div>
+							<div>
+								<label>bottom height</label>
+								<input id="reye.eyelid.bottom" type="number" min="0" max="50" value="0"/>
+							</div>
+						</fieldset>
+					</fieldset>			
+		  		</fieldset>
+		    </fieldset>
+		
+		</div><!-- controllers -->
+		
+	</div>
+		<section id= "timeline">
+			<div>
+				<select id ="select_anim">
+					<option value="0"> -- load animation -- </option>
+				</select>
+				<button id="newanimation" type="button">new animation</button>
+			</div>
+			<div class="keyframes">
+				<div class="label"> Key Frames</div>
+				<div class="line" id='keyframeline'>
+				</div>
+			</div>
+			<div class="timeline">
+				<div class="label"> run </div>
+				<div class="line">
+					<div class="time" id="time"></div>	
+				</div>
+			</div>
+			<div class="buttons">
+				<button id="runanimation" type="button">run</button>
+				<button id="pauseanimation" type="button" disabled>pause</button>
+				<button id="resumeanimation" type="button" disabled>resume</button>
+				<button id="stopanimation" type="button" disabled>stop</button>
+				<button id="saveanimation" type="button" >save</button>
+				<button id="deleteframe" type="button" class="right">delete frame</button>
+			</div>
+		</section>
+		<section id="help">
+			<header> Keyframe Animation</header>
+			<div> I created some short films that you can load with the <em>load animation</em> menu. You can also create your own animations and save them on your browser local storage.</div>
+			<div> To <em>add</em> a keyframe double click on the keyframe line, you'll see a new red box.</div>
+			<div> You can <em>select</em> a keyframe by clicking on it, the box will change to red. Then <em>modify</em> the fields on the right to change the character in the current frame or press 'delete frame' to <em>delete</em> it.</div>
+			<div>You need to <em>stop</em> the animation to add/remove/modify keyframes or to select another animation</div>
+			<div class="tip"> 
+	    		<em>Pro Tip</em>: use ENTER to jump to next section, and TAB to jump to next field. If you are in chrome you can use the up/down arrow keys to increase/decrease the value of the field.
+	    	</div>
+	    </section>
+	    <section id="browser_support">
+	    	<div>This page works better in Chrome for Mac </div>
+	    	<img src="img/chrome.jpeg" height="128"/><img src="img/firefox.png" height="128"/>
+	    </section>
+	    <section id="references">
+	    	<header> About Pato </header>
+	    	<div> The character used in this page is from the Spanish pre-school animated television series Pocoyo. 
+	    	<a href="http://en.wikipedia.org/wiki/Pocoyo">wikipedia link</a></div>
+	    	<div class="centered">
+	    		<img src="img/pocoyo.jpg" height="128"/>
+	    	</div>
+	    	
+	    </section>
+    </body>
+</html>
