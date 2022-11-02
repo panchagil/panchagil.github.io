@@ -1,0 +1,196 @@
+
+<script src="script.js"></script>
+<script id="title" type="text/plain">
+ Lambertian Reflectance and Shadows
+</script>
+<script id="description" type="text/plain">
+The shaders implements (i) Ambient Light, (ii) Lambert Reflectance and
+(iii) Shadows
+
+In this scene there is only one directional light. You can move the cursor to change 
+the direction of the light in x and y. The z direction is fixed, the light comes 
+from the front. 
+</script>
+
+<script id="shader" type="x-shader/x-fragment">
+    // basic colors used
+    const vec3 face = vec3(1.,0.86,0.811);
+    const vec3 ears = vec3(0, 123, 184)/255.0;
+    const vec3 eyes = vec3(0.3,0.3,0.3);
+
+    struct Sphere {
+        vec4 center;
+        float radius;
+        vec3 color;
+    };
+
+    struct Ray {
+        vec4 v; //origin
+        vec4 w; //direction
+    };
+
+    struct Hit {
+        Sphere object;
+        float t;
+    } NO_HIT;
+
+    //=========== CAMERA ===========
+    const float fl = 5.0;
+    
+    //============ SCENE ============
+
+    // -- objects
+    const int num_spheres = 6;
+    // note: apparently we can't initialize the array here
+    Sphere spheres [num_spheres];
+    const Sphere C1 = Sphere(vec4(0.9, 0.0, 0.0, 1.0), 0.2, ears);
+    const Sphere C2 = Sphere(vec4(-0.9, 0.0, 0.0, 1.0), 0.2, ears);
+    const Sphere C3 = Sphere(vec4(0.0, 0.0, 0.0, 1.0), 1.0, face);
+    const Sphere C4 = Sphere(vec4(0.3, 0.0, 0.9, 1.0), 0.1, eyes);
+    const Sphere C5 = Sphere(vec4(-0.3, 0.0, 0.9, 1.0), 0.1, eyes);
+    const Sphere C6 = Sphere(vec4(0.0, 0.3, 1.0, 1.0), 0.1, face); // nose
+
+    // -- lights
+    vec4 SUN1 = vec4(0.5, 2.0 ,1.0 ,0.0);
+    const float AMBIENT = 0.3;
+
+    
+    /**
+    * Checks intersection between ray W from V and sphere co.
+    * returns t of the intersection. 
+    *
+    **/
+    float getIntersect(Sphere co, Ray ray){
+        vec4 vc = ray.v - co.center;
+        float r = co.radius;
+
+        // quadratic equation to intersect the sphere
+        float b = 2.0 * dot(ray.w, vc);
+        float c = dot(vc, vc) - pow(r,2.0);
+
+        float discriminant = pow(b,2.0) - 4.0 * c;
+        float t_o = -1.0;
+        if (discriminant >= 0.0){
+            float root1 = (-b + sqrt(discriminant))/2.0;
+            float root2 = (-b - sqrt(discriminant))/2.0;
+            if (root1 < 0.0 && root2 < 0.0){
+                // nothing
+            } else if (root1 < 0.0 && root2 >= 0.0){
+                t_o = root2 ;
+            } else if (root1 >= 0.0 && root2 < 0.0){
+                t_o = root1 ;
+            }else {
+                t_o = min(root1, root2);
+            }
+        }
+        return t_o;
+    }
+
+    Hit getFirstHit(Ray ray){
+        bool isHit = false;
+        float t = -1.0;
+        Sphere object;
+
+        for (int i=0; i< num_spheres; i++){
+            float to = getIntersect(spheres[i], ray);   
+            if (to >= 0.0 && (to < t || t < 0.0)){
+                t = to;
+                object = spheres[i];
+                isHit = true;
+            }
+        }
+        if (isHit){
+            return Hit(object, t);
+        }
+        return NO_HIT;
+        
+    }
+    vec4 getHitPoint(Ray ray, Hit hit){
+        return ray.v + hit.t * ray.w;
+    }
+
+    /**
+    * Paints the pixel vUV with the appropriate color;
+    * 
+    **/
+    void paintPixel(vec2 vUV){
+        vec4 v = vec4(0.0, 0.0, fl, 1.0);
+        vec4 w = normalize(vec4(vUV.x - 0.5, 0.5 - vUV.y , -1.0*fl, 0.0));
+        
+        Ray pixelRay = Ray(v,w);
+        Hit hit = getFirstHit(pixelRay);
+        
+        if (NO_HIT != hit){
+            Sphere sphere = hit.object;
+
+            // -- properties of the point we hit
+            vec4 s = getHitPoint(pixelRay, hit); //point in the surface of the object we hit
+            vec4 normal  = normalize(s - sphere.center);
+
+            // -- ADD ambient light
+            float light = AMBIENT; 
+
+            // -- ADD directional light
+
+            // V = S + eL: we move a little bit from the point s so we don't hit our same object
+            Ray lightRay = Ray(s + 0.01*SUN1, normalize(SUN1)); 
+            if (NO_HIT == getFirstHit(lightRay)){
+                
+                float reflectance = max(0.0, dot(normal, SUN1));
+                light += (1.0-AMBIENT)*reflectance;
+            }
+
+            gl_FragColor = vec4(sphere.color * light, 1);        
+        }
+
+        else {
+          gl_FragColor = vec4(0.2,0.2,0.2,1);      
+        }
+    }
+
+    /**
+    * Creates the elements that are part of our scene
+    * moves them to their position at time uTime
+    **/
+    void initializeScene(){
+        spheres[0] = C1;
+        spheres[1] = C2;
+        spheres[2] = C3;
+        spheres[3] = C4;
+        spheres[4] = C5;
+        spheres[5] = C6;
+
+
+        // rotation of the scene
+        mat4 rotation = mat4(
+           cos(uTime), 0, -sin(uTime), 0, // first column 
+           0, 1, 0, 0, 
+           sin(uTime), 0, cos(uTime), 0, // third column
+           0, 0, 0, 1
+        );
+
+        mat4 translation = mat4(
+           1, 0, 0, 0, // first column 
+           0, 1, 0, 0, 
+           0, 0, 1, -15, // third column
+           0, 0, 0, 1
+        );
+
+        for (int i=0; i< num_spheres; i++){
+            spheres[i].center = (spheres[i].center * rotation) * translation;
+        }
+
+        vec2 mouse = vec2(uMouseLocation.x/uViewportSize.x - 0.5 , 0.5 - uMouseLocation.y/uViewportSize.y);
+
+        SUN1 = vec4(normalize(mouse),1.0 ,0.0);
+    }
+
+    void main(void) {
+        
+        initializeScene();
+        paintPixel(vUV);
+
+    }
+</script>
+
+<script>start()</script>

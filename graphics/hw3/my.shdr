@@ -1,0 +1,74 @@
+// basic colors
+    const vec3 cyan = vec3(0,1.,1.);
+    const vec3 magenta = vec3(1.,0,1.);
+    const vec3 yellow = vec3(1.,1.,0);
+    struct Circle {
+        vec4 center;
+        float radius;
+        vec3 color;
+    };
+
+    // viewpoint
+    const float fl = 1.0;
+    const vec4 v = vec4(0,0,fl,1);
+
+    // scene
+    //Circle circles[1] = Circle[1](Circle(vec4(3.0, 1.0, -15.0, 1.0), 1.0, magenta));
+        //Circle(vec4(0.3, -0.2, -10.0, 1.0), 1.0, cyan),
+        //Circle(vec4(-0.3, 0.8, -10.0, 1.0), 1.0, yellow)
+    //);
+    
+    float get_intersect(circle co, vec4 w, vec4 v){
+        vec4 vc = v - co.center;
+        float r = co.radius;
+
+        // quadratic equation to intersect the sphere
+        float a = 1.0;
+        float b = 2.0 * dot(w, vc);
+        float c = dot(vc, vc) - pow(r,2.0);
+
+        float discriminant = pow(b,2.0) - 4.0 * a * c;
+        float t_o = -1.0;
+        if (discriminant > 0.0){
+            float root1 = (-b + discriminant)/2.0;
+            float root2 = (-b - discriminant)/2.0;
+            if (root1 < 0.0 && root2 < 0.0){
+                // nothing
+            } else if (root1 < 0.0 && root2 >= 0.0){
+                t_o = root2;
+            } else if (root1 >= 0.0 && root2 < 0.0){
+                t_o = root1;
+            }else {
+                t_o = min(root1, root2);
+            }
+        }
+        return t_o;
+    }
+    void main(void) {
+        vec4 w = normalize(vec4(vUV.x - 0.5, vUV.y - 0.5, -1.0*fl, 0.0));
+        float ts [3];
+        float t = -1.0;
+        for (int i =0; i< 3; i++){
+            ts[i] = get_intersect(circles[i], w, v);
+        }
+
+        
+        if (ts[0] >= 0.0){
+            t = ts[0];
+            o = c1;
+        }
+        if (ts[1] >= 0.0 && ((ts[1] < t) || t < 0.0)){
+            t = ts[1];
+            o = c2;
+        }
+        if (ts[2] >= 0.0 && ((ts[2] < t) || t < 0.0)){
+            t = ts[2];
+            o = c3;
+        }
+        
+        if (t>=0.0){
+            gl_FragColor = vec4(o.color,1);    
+        }else{
+            gl_FragColor = vec4(0,0,0,1);    
+        }
+    }

@@ -1,0 +1,56 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="script.js"></script>
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Drops Shaders
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+The shader shows three groups of concentric circles. 
+Each one looks like a drop.
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+
+	// basic colors
+	const vec3 cyan = vec3(0,1.,1.);
+	const vec3 magenta = vec3(1.,0,1.);
+	const vec3 yellow = vec3(1.,1.,0);
+	
+	const float circles = 10.0;
+	const float circle_width = 0.01;
+
+	const vec2 cm = vec2(0.5, 0.7); // magenta circle
+	const vec2 cc = vec2(0.8, 0.2); // cyan circle
+	const vec2 cy = vec2(0.2, 0.2); // yellow circle
+
+	vec4 drop(vec2 point, vec2 circle, vec3 color, float time, float frec ){
+		for (float i = 0.; i< circles; i++){
+			float clock1 = time*0.2  - sin(i*frec) - cos(i*0.2);
+			float circle_radius = clock1 - floor(0.6 + clock1);
+			float distance = distance(point, circle);	
+
+			if ( abs(distance - circle_radius) < circle_width/2.){
+				return vec4(color, 1.0 - 3.0*distance);
+			}
+		}
+		return vec4(0,0,0,0);
+	}
+	void main() {
+		
+		gl_FragColor = drop(vUV, cc, cyan, uTime, 0.1) 
+			+ drop(vUV, cy, yellow, uTime, 0.2)
+			+ drop(vUV, cm, magenta, uTime, 0.3);
+			
+	}
+</script>
+
+<script>start()</script>

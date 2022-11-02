@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="scripts/matrix.js"></script>
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+		<script type="text/javascript" src="scripts/cg_main.js"></script>
+		<script type="text/javascript" src="scripts/cg_shapes.js"></script>
+		<script type="text/javascript">
+		(function() {
+			var torus = CG.shapes.torus(1.5, 0.7, 10, 20);
+
+			var animate = function(time) {
+				CG.main.clear();
+				var matrix = mat4.xRotation(time);
+				CG.main.draw(torus, matrix);
+			}
+
+			// assign our animation function 
+			CG.scene.animate = animate;
+
+		})(window);
+	</script>
+		<link rel="stylesheet" href="css/main.css" />
+	</head>
+	<body>
+	<header>
+		Revolution Torus
+	</header>
+	<p>The surface is obtain rotating the circle C (in the xz plane) about the z axis (camera axis)</p>
+	<section id="canvas">
+		<canvas id="canvas1" width="400", height="400"></canvas>
+	</section>
+	<section id="description">
+		<header> Description of modules of the project </header>
+		<dl>
+			<dt><a href="scripts/animationFrame.js">animationFrame.js</a></dt>
+			<dd>RequestAnimationFrame polyfill by Erik Moller. fixes from Paul Irish and Tino Zijdel</dd>
+			<dt><a href="scripts/matrix.js">matrix.js</a></dt>
+			<dd>Implementation of Matrix transformations an vector related functions</dd>
+			<dt><a href="scripts/cg_main.js">cg_main.js</a> <dt>
+			<dd>Original code of Prof. Perlin for this hw. Includes refactor to add module pattern, and expose only functionality needed by other modules.
+			</dd>
+			<dt><a href="scripts/cg_shapes.js">cg_shapes.js</a> <dt>
+			<dd>Code for generating the sphere and other shapes<dd>
+			</dt>
+		</dl>
+	</section>
+	</body>
+</html>

@@ -1,0 +1,274 @@
+
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<script src="./matrix.js"></script>
+<script src="./noise.js"></script>
+<script src="./oct23_files/gl.js"></script>
+</head>
+<body onload="glStart();">
+<center><table width="90%"><tbody><tr><td>
+<hr color="white" size="20">
+
+<center>
+<b>
+Course notes for October 23
+</b>
+</center>
+<p>
+
+Below are two examples of combining geometry with shaders.
+You can see how these were made by doing
+<font face="helvetica">View Source</font>
+in your browser
+(in Google Chrome,
+<font face="helvetica">View Source</font>
+is in the
+<font face="helvetica">Developer</font>
+tab of the
+<font face="helvetica">View</font>
+menu).
+Note that we are also using script file
+<a href="./oct23_files/gl.js" target="1"><code>gl.js</code></a>,
+so you should also download that file.
+</p><p>
+If you are feeling ambitious, feel free to make
+changes and improvements to script file <code>gl.js</code>.
+</p><p>
+</p><hr>
+<center>
+<table width="100%">
+<tbody><tr>
+<td valign="top" width="400">
+<small>
+<i>Example 1:</i>
+A sphere created with
+<code>createParametric()</code>
+and a box created with
+<code>createCube()</code>.
+The two objects use the same
+<code>fs_phong</code>
+shader, but with different parameters.
+<br>&nbsp;
+</small>
+</td>
+<td>&nbsp;</td>
+
+<td valign="top" width="400">
+<small>
+<i>Example 2:</i>
+This shows how to make
+a simple procedural texture using the 2D texture
+parameter variable <code>vUV</code>.
+</small>
+</td>
+</tr>
+
+<tr>
+<td>
+<center><canvas id="canvas1" data-render="gl" width="400" height="400" tabindex="1"></canvas></center>
+
+</td><td>&nbsp;</td>
+<td>
+<center><canvas id="canvas2" data-render="gl" width="400" height="400" tabindex="1"></canvas></center>
+</td>
+</tr>
+</tbody></table>
+</center>
+<hr>
+
+<b>Homework:</b>
+<p>
+
+What I'm really looking for this week is for
+you to have fun, be creative, use this
+new expanded tool set to create your own
+original shapes and scenes, combining
+the following:
+</p><ul>
+<li>
+Animation, using the matrix package you've implemented;
+<p>
+</p></li><li>
+Interesting geometric shapes, perhaps combining
+<code>createParametric()</code>
+with the knowledge of splines you gained
+from Prof. Zorin's lecture;
+<p>
+</p></li><li>
+Interesting shader effects.
+For example, you might want to try
+3D procedural texture
+(using shader variable
+<code>uXYZ</code>)
+with layered fog.
+</li></ul>
+<p>
+
+For any of the above, feel free to add
+variables to the vertex shader
+that I defined at the top of
+<code>gl.js</code>.
+
+</p><p>
+
+Since this framework allows you to put multiple
+WebGL canvases into the same HTML5 document,
+you might want to show multiple versions of
+a scene in the same doc,
+either to compare different techniques
+or to show a progression of some sort.
+
+</p><p>
+
+Also, if you spot any bugs or deficiencies
+in the code I'm distributing, please tell me
+so that I can fix them right away and get
+those fixes out to the class.
+
+</p><p>
+
+
+<script id="fs_uv" type="x-shader/x-fragment">
+    uniform vec3 rgb;
+    varying vec3 vNormal;
+    varying vec2 vUV;
+    
+    void main(void) {
+       float c = 2.*max(0.,dot(vec3(.3,.3,.3),normalize(vNormal)));
+       float u = .5+.5*sin(30.*vUV.x);
+       float v = .5+.5*sin(40.*vUV.y);
+       gl_FragColor = vec4(c*rgb*vec3(u,v,1.), 1.);
+    }
+</script>
+
+<script id="fs_phong" type="x-shader/x-fragment">
+    uniform float p[10];
+    uniform vec3 lDir;
+    varying vec3 vNormal;
+
+    void main(void) {
+
+       // NORMALIZE LENGTH OF THE INTERPOLATED NORMAL
+
+       vec3 normal = normalize(vNormal);
+
+       // COMPUTE DIFFUSE FACTOR
+
+       float ldn = dot(lDir, normal);
+       float diffuse = max(0., ldn);
+
+       // COMPUTE SPECULAR FACTOR
+
+       vec3 refl = 2. * ldn * normal - lDir;
+       float specular = pow(max(0., refl.z), p[9]);
+
+       // SUM PHONG REFLECTION COMPONENTS
+
+       vec3 c = vec3(p[0],p[1],p[2]) +
+                vec3(p[3],p[4],p[5]) * diffuse +
+                vec3(p[6],p[7],p[8]) * specular;
+
+       // APPLY GAMMA CORRECTION
+
+       gl_FragColor = vec4(pow(c.x,0.45),pow(c.y,0.45),pow(c.z,0.45),1.);
+    }
+</script>
+
+<script id="fs_wood" type="x-shader/x-fragment">
+   uniform sampler2D uSampler;
+   uniform sampler2D uNormalSampler;
+   uniform sampler2D uSpecularSampler;
+   uniform vec3 uLDir;
+   uniform float p[10];
+   varying vec3 vNormal;
+   varying vec2 vUV;
+
+    vec3 ungammaCorrect(vec3 c) { return vec3(pow(c.x,2.222),pow(c.y,2.222),pow(c.z,2.222)); }
+
+    vec3 gammaCorrect(vec3 c) { return vec3(pow(c.x,.45),pow(c.y,.45),pow(c.z,.45)); }
+    
+    
+   void main(void) {
+      // we want to sample double 
+      
+      vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV*2.0).xyz);
+      vec3 nrgb = ungammaCorrect(texture2D(uNormalSampler, vUV*2.0).xyz);
+      vec3 srgb = ungammaCorrect(texture2D(uSpecularSampler, vUV*2.0).xyz);
+
+      vec3 normal = normalize(vNormal);
+      normal = normalize(normal - nrgb);
+
+      float ldn = dot(uLDir, normal);
+      float diffuse = max(0., ldn);
+
+      vec3 refl = 2. * ldn * normal - uLDir;
+      float specular = pow(max(0., refl.z), 2.0*srgb.x);
+
+      
+      vec3 c = trgb * (1.0 - diffuse)*0.5 +
+                trgb * diffuse +
+                vec3(p[6],p[7],p[8]) * specular;
+
+      gl_FragColor = vec4(gammaCorrect(c), 1.);
+
+
+   }
+</script>
+<script>
+    canvas1.setup = function() {
+        this.addObject(createParametric(1/30,1/30,sph), 'fs_wood');
+        this.objects[0].textureSrc =        "1554-diffuse.jpg";
+        this.objects[0].normalTextureSrc =  "1554-normal.jpg";
+        // this.objects[0].specTextureSrc =    "215_spec.jpg";
+    }
+        
+    canvas1.update = function() {
+        var obj0 = this.objects[0];
+        
+        obj0.matrix = mat4.multiply(mat4.yRotation(time), mat4.scale(0.6));
+        obj0.setUniform('p', [.1,.0,0, .9,.0,0, 1,1,1,20]);
+        obj0.setUniform('uLDir', [0.3,0.3,1.0]);
+    }
+
+    canvas2.setup = function() {
+        this.addObject(createCube(), 'fs_uv');
+        this.addObject(createCube(), 'fs_uv');
+    }
+        
+    canvas2.update = function() {
+        var cy = .5 * Math.cos(time);
+        var sy = .5 * Math.sin(time);
+
+        var cz = .5 * Math.cos(2 * time);
+        var sz = .5 * Math.sin(2 * time);
+
+        var obj0 = this.objects[0];
+        var obj1 = this.objects[1];
+
+        obj0.matrix = [cy,0,sy,0, 0,.3,0,0, -sy,0,cy,0, 0,0,0,1];
+        obj1.matrix = [cz,sz,0,0, -sz,cz,0,0, 0,0,.5,0, 0,0,0,1];
+
+        obj0.setUniform('rgb', [1,.5,.5]);
+        obj1.setUniform('rgb', [.5,.5,1]);
+
+        if (this.mousePressed)
+           console.log("canvas2 drag " + this.mouseX + " " + this.mouseY);
+    }
+
+    var sph = function(u,v) {
+       var theta = 2 * Math.PI * u,
+           phi = Math.PI * (v - .5),
+           cosT = Math.cos(theta) , cosP = Math.cos(phi) ,
+           sinT = Math.sin(theta) , sinP = Math.sin(phi) ;
+       var x = cosT * cosP, y = sinT * cosP, z = sinP;
+       var r = 1 + noise(2*x, 2*y, 2*z) / 24
+                 + noise(4*x, 4*y, 4*z) / 24;
+       return [ r * x, r * y, 1.3 * r * z ];
+    }
+
+</script>
+
+</p><hr color="white" size="100">
+</td></tr></tbody></table></center>
+
+
+</body></html>

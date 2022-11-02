@@ -1,0 +1,168 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="vendor/CodeMirror/codemirror.js"></script>   
+<script src="vendor/CodeMirror/mode/glsl.js"></script>
+<link rel="stylesheet" href="vendor/CodeMirror/codemirror.css">  
+<link rel="stylesheet" href="vendor/CodeMirror/theme/monokai.css">
+<link rel="stylesheet" href="style/editor.css">
+<script type="text/javascript" src="scripts/editor.js"></script>
+<script type="text/javascript" src="scripts/noise.js"></script>
+<script type="text/javascript" src="scripts/glsl_matrix.js"></script>
+<script type="text/javascript" src="scripts/glsl_shapes.js"></script>
+<script type="text/javascript" src="scripts/script.js"></script> 
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Normal Bump 
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+This shader implements (i) phong reflectance, and (ii) local lights 
+with (ii) noise it its surface normal
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+#define M_PI 3.1415926535897932384626433832795
+
+/** README
+* Use any of the VECTOR_NOISE functions and modify the params
+* K1 and K2 to get different effects.
+
+* NOTE: the turbulence function seems to be more unstable in windows
+**/ 
+
+// #define VECTOR_NOISE vectorTurbulence
+// #define VECTOR_NOISE vectorNoise
+#define VECTOR_NOISE vectorAbsNoise
+#define K1 0.4
+#define K2 8.0
+
+
+
+// =============== NOISE =============//
+
+vec4 vectorAbsNoise(vec4 p){
+    p = p + uTime;
+    float x = abs(noise(p.xyz));
+    float y = abs(noise(p.yzx));
+    float z = abs(noise(p.zxy));
+    return vec4(x,y,z,0);
+} 
+
+vec4 vectorNoise(vec4 p){
+    p = p + uTime;
+    float x = noise(p.xyz);
+    float y = noise(p.yzx);
+    float z = noise(p.zxy);
+    return vec4(x,y,z,0);
+}
+/** NOTE: seems to be more unstable in windows, 
+probably because of the loop inside turbulence
+function */
+vec4 vectorTurbulence(vec4 p){
+    p = p + uTime;
+    float x = turbulence(p.xyz);
+    float y = turbulence(p.yzx);
+    float z = turbulence(p.zxy);
+    return vec4(x,y,z,0);
+}
+
+vec4 noiseNormal(vec4 normal){
+    vec4 n = normal;
+    n = n + K1 * VECTOR_NOISE(n * K2);
+    return normalize(n);
+}
+
+
+
+// ========== SCENE ================= //
+
+#define N_LIGHTS 3
+
+const float fl = 5.0;
+vec4 L1 = normalize(vec4(-0.5,-0.3,0.5 ,0.0));
+const float AMBIENT = 0.3;
+const vec4 TOP = vec4(0,-1,0,0); // at y = 0
+
+Light lights[N_LIGHTS];
+Quadratic sphere;
+vec4 plane;
+
+#define HIT_TEST(h, hit) if (h.t_en >= 0.0 && (h.t_en < hit.t_en || hit.t_en < 0.0)) hit = h
+Hit getFirstHit(vec4 v, vec4 w){
+    Hit hit = NO_HIT;
+    Hit h = hitQuadratic(sphere,v,w);
+    HIT_TEST(h,hit);
+    return hit;
+}
+
+#define CLAMP_COLOR(color) vec3(clamp(color.x,0.0,1.0),clamp(color.y,0.0,1.0),clamp(color.z,0.0,1.0))
+vec4 getPixelColor(vec2 uv){  
+    vec4 v = vec4(0.0, 0.0, fl, 1.0);
+    vec4 w = normalize(vec4(uv.x - 0.5, 0.5 - uv.y , -1.0*fl, 0.0));
+
+    Hit hit  = getFirstHit(v, w);
+    if (hit.t_en < 0.0){
+        return vec4(0,0,0,1);   
+    }
+    
+    vec4 s = v + hit.t_en * w;
+    vec3 color = hit.material.ambient;
+
+    vec4 normal = noiseNormal(hit.normal);
+
+    for (int i =0; i < N_LIGHTS; i++){
+        Light light = lights[i];
+        vec4 L = normalize(vec4(light.position.xyz,0));
+        if(!getFirstHit(s + 0.01 * L, L).isHit){
+           // with this form of calculating the highlight we don't
+            // need to check if is negative. And for some reason the other 
+            //way behave odd in windows.
+            vec4 h = normalize(L - w);
+
+            vec3 cd = hit.material.diffuse*max(0.0, dot(normal, L));
+            vec3 cs = hit.material.specular*pow(dot(h,normal),hit.material.power);
+
+            float attenuation = 1.0; //no attenuation
+            if (light.position.w == 1.0){
+                float d = distance(light.position,s); //
+                attenuation = pow(d,0.5);
+            }
+            vec3 color_i = light.color /attenuation * (cd + cs); 
+            color = color + CLAMP_COLOR(color_i);
+
+        }
+        
+    }
+    
+    return vec4(clamp(color.x,0.0,1.0),clamp(color.y,0.0,1.0),clamp(color.z,0.0,1.0), 1);
+}
+
+Material sMaterial = newMaterial(vec3(0.045,0.03,0.03),vec3(0.9,0.9,1), vec3(0.2,0.2,0.2), 16.0);
+
+void createScene(){
+    mat4 baseTranslation = tMatrix(vec3(0,0,20));
+    sphere = newSphere(sMaterial);
+    sphere.transform = tMatrix(vec3(0,0,-15));
+
+    // This scene does not belong to me.
+    // Source: http://thedailynathan.com/cs184/a3.html
+    lights[0] = Light(vec4(4,1,0.2,1)*baseTranslation, vec3(0.6,0,0)); 
+    lights[1] = Light(vec4(4,-2.25,4.5,1)*baseTranslation, vec3(0.65,0,0.65));
+    lights[2] = Light(vec4(-5,5,-6,1)*baseTranslation, vec3(1.0,0.67,0));
+    
+}
+void main(void) {
+    createScene();
+    gl_FragColor = getPixelColor(vUV);
+}
+
+</script>
+
+<script>start()</script>

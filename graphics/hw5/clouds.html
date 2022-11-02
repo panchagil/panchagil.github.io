@@ -1,0 +1,73 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="vendor/CodeMirror/codemirror.js"></script>   
+<script src="vendor/CodeMirror/mode/glsl.js"></script>
+<link rel="stylesheet" href="vendor/CodeMirror/codemirror.css">  
+<link rel="stylesheet" href="vendor/CodeMirror/theme/monokai.css">
+<link rel="stylesheet" href="style/editor.css">
+<script type="text/javascript" src="scripts/editor.js"></script>
+<script type="text/javascript" src="scripts/noise.js"></script>
+<script type="text/javascript" src="scripts/script.js"></script> 
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Clouds Planet
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+This shader is an attempt to imitate what we saw on class of how noise functions
+can be added to generate cloud-like textures.
+Source: http://www.noisemachine.com/talk1/21.html 
+
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+/**
+Source: http://www.noisemachine.com/talk1/21.html
+**/
+#define CLAMP_COLOR(color) vec4(clamp(color.x,0.0,1.0),clamp(color.y,0.0,1.0),clamp(color.z,0.0,1.0), clamp(color.w,0.0,1.0))
+vec4 pixelColor(vec2 uv){
+        float x = 2.*uv.x-1.;
+        float y = 2.*uv.y-1.;
+        float r = 0.6;
+        float z = sqrt(r*r-x*x-y*y);
+
+        vec3 p = vec3(x,y,z);
+        float n = 0.0;
+        for (float i =0.0; i< 8.0; i++){
+            float factor = pow(2.0,i);
+            n += noise(p * factor)/ factor;
+        }
+        float d = distance(vec2(x,y), vec2(0,0));
+        
+        vec4 color;
+        vec3 blue1 = vec3(10,63,80)/330.0;
+        vec3 blue2 = vec3(10,63,80)/510.0;
+
+        if (d <= r){
+            n = 0.5 + n/2.0;
+            if (d < 0.9*r){
+                color = vec4(blue1,0.9);
+            }else{
+                color = vec4(blue2,0.9);
+            }
+            
+            vec4 clouds = 2.3*n*n*n*vec4(1.0,1.0,1.0,1.0);
+            color +=CLAMP_COLOR(clouds);
+            return CLAMP_COLOR(color);
+        }
+        else return vec4(0,0,0,1);
+}
+void main(void) {
+        gl_FragColor = pixelColor(vUV);
+    }
+
+</script>
+
+<script>start()</script>

@@ -1,0 +1,312 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+
+        <script type="text/javascript" src="scripts/animation.js"></script>
+		<link rel="stylesheet" href="css/keyframe.css" />
+
+        <script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+       
+        <!-- We add a small script that reads that data-include list and adds the extra
+        code to our shader. In this case the gamma correction functions are added
+
+        The shader reads a texture for the color, and another one for normal mapping
+         -->
+        <script id="uv_mapping" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform vec3 lDir;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          uniform sampler2D uSampler;
+          uniform bool textureEnabled;
+          	
+		  void main(void) {
+		  	vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+            vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            if (textureEnabled){
+            	c = c * trgb;       
+            } 
+            gl_FragColor = vec4(gammaCorrect(c), 1.);
+          }
+      </script>
+      <script type="text/javascript">
+        (function() {
+			
+			var plane = CG.shapes.createPlane();
+			var ground = CG.shapes.createCube();
+
+			var scene = CG.main.newScene("canvas");
+			var ldir = [0.57, 0.57, 0.57];
+			var color = [.25, .21, .2, .5, .43, .405, 0.0, 0.0, 0.0, 10.0];
+			var color2 = [.0, .03, .06, .0, .48, .72,  0.9, 0.9, 0.9, 10.0];
+			
+			var box, top1, top2, top3, top4;
+			scene.setup = function() {
+				
+				/*
+				* The transformation of the mesh does NOT affect the children of the object.
+				* The transformation on the object DOES affect the children.
+				* 
+				*/
+				
+				// Meshes
+				
+				var groundMesh = scene.glHelper.createMesh(ground, 'uv_mapping');
+				groundMesh.material.setUniform('p', color2);
+				groundMesh.material.setUniform('lDir', ldir);
+				groundMesh.transform = mat4.multiply(
+					mat4.scale(2.5,0.1,2.5),
+					mat4.translation(0,-1,0));
+				
+				var faceMesh = scene.glHelper.createMesh(plane, 'uv_mapping');
+				faceMesh.material.setUniform('p', color);
+				faceMesh.material.setUniform('lDir', ldir);
+				faceMesh.material.setUniform('textureEnabled', true);
+				faceMesh.material.setSampler2D('uSampler', "img/box_face.jpg");
+
+				var boxMesh = scene.glHelper.createMesh(plane, 'uv_mapping');
+				boxMesh.material.setUniform('p', color);
+				boxMesh.material.setUniform('lDir', ldir);
+				boxMesh.material.setUniform('textureEnabled', true);
+				boxMesh.material.setSampler2D('uSampler', "img/box2.jpg");
+
+				// // Objects
+				var base = scene.addObject('o');
+				base.transform = mat4.multiply(
+					mat4.xRotation(0.1),
+					mat4.multiply(
+						mat4.translation(0,-0.25,0),
+						mat4.scale(0.4)
+						)
+					);
+
+				
+				base.addObject('ground',groundMesh)
+					.transform = mat4.translation(0,-1.1,0);
+
+				box = base.addObject('box');
+				
+				box.addObject('bottom',boxMesh)
+					.transform = mat4.multiply(
+						mat4.translation(0,-1,0),
+						mat4.xRotation(-Math.PI/2)
+						);
+				
+				box.addObject('right',boxMesh)
+					.transform = mat4.multiply(
+						mat4.translation(1,0,0),
+						mat4.yRotation(Math.PI/2)
+						);
+
+				box.addObject('left',boxMesh)
+					.transform = mat4.multiply(
+						mat4.translation(-1,0,0),
+						mat4.yRotation(-Math.PI/2)
+						);
+
+				box.addObject('front',faceMesh)
+					.transform = mat4.translation(0,0,1);
+			
+				box.addObject('back',boxMesh)
+					.transform = mat4.multiply(
+						mat4.translation(0,0,-1),
+						mat4.yRotation(Math.PI)
+						);
+
+				top1 = box.addObject('top1',boxMesh);
+				top1.basetransform = mat4.multiply(
+					mat4.scale(0.6,1,1),
+					mat4.multiply(
+						mat4.translation(-1,0,0),
+						mat4.xRotation(-Math.PI/2)
+					)
+				);
+				top2 = box.addObject('top2',boxMesh);
+				top2.basetransform = mat4.multiply(
+					mat4.scale(0.6,1,1),
+					mat4.multiply(
+						mat4.translation(1,0,0),
+						mat4.xRotation(-Math.PI/2)
+					)
+				);
+				top3 = box.addObject('top3',boxMesh);
+				top3.basetransform = mat4.multiply(
+					mat4.scale(1,1,0.6),
+					mat4.multiply(
+						mat4.translation(0,0,1),
+						mat4.xRotation(-Math.PI/2)
+					)
+				);
+				top4 = box.addObject('top4',boxMesh);
+				top4.basetransform = mat4.multiply(
+					mat4.scale(1,1,0.6),
+					mat4.multiply(
+						mat4.translation(0,0,-1),
+						mat4.xRotation(-Math.PI/2)
+					)
+				);
+				
+			};
+
+			scene.update = function(time) {
+				var params = Animation.update(time);
+
+				var a1 = params[0] 
+					+ params[1] * Math.cos(4*time) + params[2] * Math.cos(20*time)
+					+ 0.1*Perlin.noise(time, time, time);
+				
+				var a2 = -params[3] 
+					+ params[4] * Math.cos(4*time)
+					+ 0.1*Perlin.noise(time, time, time);
+
+				var a3 = 0.7 
+					+ 0.1*Perlin.noise(time, time, time);
+				var a4 = -0.7 
+					+ 0.1*Perlin.noise(time, time, time);
+
+				var b1 = params[6] * Math.cos(4 * time) + params[7];
+				
+				box.transform = mat4.multiply(
+					mat4.yRotation(b1),
+					mat4.multiply(
+						mat4.translation(params[8], -1.0, 0),
+						mat4.multiply(
+							mat4.zRotation(params[5]),
+							mat4.translation(-params[8],1.0,0)
+						)
+					)
+				);
+
+				top1.transform = mat4.multiply(
+					mat4.translation(-1,1,0),
+					mat4.multiply(
+						mat4.zRotation(a1),
+						top1.basetransform
+				));
+
+				top2.transform = mat4.multiply(
+					mat4.translation(1,1,0),
+					mat4.multiply(
+						mat4.zRotation(a2),
+						top2.basetransform
+				));
+
+				top3.transform = mat4.multiply(
+					mat4.translation(0,1,1),
+					mat4.multiply(
+						mat4.xRotation(a3),
+						top3.basetransform
+				));
+
+				top4.transform = mat4.multiply(
+					mat4.translation(0,1,-1),
+					mat4.multiply(
+						mat4.xRotation(a4),
+						top4.basetransform
+				));
+			};
+
+			
+			
+		})();
+      </script>
+      <script>
+       (function(){
+			Animation.addAnimation({
+				name: 'idle',
+				key: 'a',
+				motion: [0.7, 0, 0, /**/0.7, 0, /**/0, 0, 0.2, /**/0],
+				rate: 1
+			});
+			Animation.addAnimation({
+				name: 'waving',
+				key: 'b',
+				motion: [-1.57, 1, 0, /**/ -1.7, 1, /**/0, 0.3, 0., /**/0],
+				rate: 1
+			});
+
+			Animation.addAnimation({
+				name: 'hi',
+				key: 'c',
+				motion: [0, 0, 1, /**/ 0.7, 0, /**/ -Math.PI/5, 0, 0, /**/1],
+				rate: 1
+			});
+
+
+			Animation.addAnimation({
+				name: 'stand right',
+				key: 'd',
+				motion: [0.7, 0, 0, /**/ 0.7, 0, /**/ -Math.PI/5, 0, 0, /**/1],
+				rate: 1
+				
+			});
+
+			Animation.addAnimation({
+				name: 'stand left',
+				key: 'e',
+				motion: [0.7, 0, 0, /**/ 0.7, 0, /**/ Math.PI/5, 0, 0, /**/-1],
+				rate: 1
+				
+			});
+
+			Animation.initialStatus('a');
+
+			Animation.addSequence("holamundo","ABBBBBBCCCCEDEDEDEDCCCEDBBBCCBBBA");
+			Animation.addSequence("sporty","ABBEBEBEBDBDBBDBEBBDBEBBCBEBCA");
+			Animation.loadLocalSequences();
+       })();
+      </script>
+
+      <script type="text/javascript">
+	      (function(){
+	      	var startTime;
+	      	
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				Animation.render(document.getElementById("key-frame"));
+				startTime = (new Date).getTime();
+				_tick();
+	          }
+	      })();
+        </script>
+    </head>
+    <body>
+    	<div class="wrapper">
+    		<canvas id="canvas" data-render="gl" width="600" height="400"></canvas>
+	    </div>
+	    <div id='key-frame'>
+	    	<!-- to be used by keyframe lib -->
+	    </div>
+    </body>
+</html>

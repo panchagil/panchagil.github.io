@@ -1,0 +1,238 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="script.js"></script>
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Your shader title goes here.
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+Your homework this week is to write a more interesting shader than the one below.
+
+A fragment shader can use time plus position as input, and produce color as output.
+
+NOTE 1: Allowable data types: float, vec2, vec3 and vec4.
+NOTE 2: Constants must have decimal points. Example: "4.0", not "4".
+
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+#define M_PI 3.1415926535897932384626433832795
+
+//=========== CAMERA ===========
+    const float fl = 5.0;
+
+mat4 translation = mat4(
+   1, 0, 0, 0 , // first column 
+   0, 1, 0, 0, 
+   0, 0, 1, -10, // third column
+   0, 0, 0, 1
+);
+
+struct Quadratic {
+    float a; // x^2
+    float b; // y^2
+    float c; // z^2
+    float d; 
+    float e; 
+    float f; 
+    float g; 
+    float h; 
+    float i; 
+    float j;  // 1
+};
+const Quadratic SPHERE = Quadratic(1.,1.,1.,0.,0.,0.,0.,0.,0.,-1.);
+
+mat4 getQMatrix(Quadratic q){
+    return mat4( 
+        q.a, 0.0, 0.0, 0.0, // first column
+        q.f, q.b, 0.0, 0.0, 
+        q.e, q.d, q.c, 0.0, // third column
+        q.g, q.h, q.i, q.j
+        );
+}
+
+Quadratic translate(Quadratic q, vec3 t){
+   mat4 Minv = mat4(
+       1, 0, 0, 0 , // first column 
+       0, 1, 0, 0, 
+       0, 0, 1, 0, // third column
+       -t.x, -t.y, -t.z, 1
+    ); 
+   mat4 MinvT = mat4(
+       1, 0, 0, -t.x , // first column 
+       0, 1, 0, -t.y, 
+       0, 0, 1, -t.z, // third column
+       0, 0, 0, 1
+    ); 
+   mat4 Q = getQMatrix(q);
+   mat4 Q_ = MinvT * Q * Minv;
+   
+   //return Q_;
+   /*
+    A B C D
+    E F G H
+    I J K L
+    M N O P
+   */
+   return Quadratic(
+        Q_[0][0],               // a = A
+        Q_[1][1],               // b = F
+        Q_[2][2],               // c = K
+        Q_[2][1],    // d = G + J
+        Q_[0][2] + Q_[2][0],    // e = C + I 
+        Q_[0][1] + Q_[1][0],    // f = B + E
+        Q_[0][3] + Q_[3][0],    // g = D + M
+        Q_[1][3] + Q_[3][1],    // h = H + N
+        Q_[2][3] + Q_[3][2],    // i = L + )
+        Q_[3][3]                // j = P
+    );
+}
+
+vec2 solveLinearEquation(vec4 l, vec4 w, vec4 v){
+    float lw = dot(l,w);
+    float t = lw != 0.0 ? -1.0 * dot(l,v) / lw : dot(l,v);
+    return vec2(t,lw);
+}
+vec2 solveQuadraticEquation(Quadratic q, vec4 w, vec4 v){
+    float A = q.a * pow(w.x,2.0) + q.b * pow(w.y,2.0) + q.c * pow(w.z,2.0) + q.d * w.y * w.z + q.e * w.z * w.x + q.f * w.x * w.y;
+    float B = 2.0*(q.a*v.x*w.x + q.b*v.y*w.y + q.c*v.z*w.z) + q.d*(v.y*w.z + v.z * w.y) + q.e*(v.z*w.x + v.x*w.z) + q.f*(v.x*w.y + v.y*w.x) + q.g*w.x + q.h*w.y + q.i*w.z;
+    float C = q.a*pow(v.x,2.0) + q.b*pow(v.y,2.0) + q.c*(pow(v.z,2.0)) + q.d*v.y*v.z + q.e*v.z*v.x + q.f*v.x*v.y + q.g*v.x + q.h*v.y + q.i*v.z + q.j;
+
+    float discriminant = pow(B,2.0) - 4.0 * A * C;
+    if (discriminant >=0.0){
+        float root = sqrt(discriminant);
+        float a2 = 2.0*A;
+        
+        float root1 = (-B + root)/a2;
+        float root2 = (-B - root)/a2;
+
+        if (root1 >= 0.0 && root2 >= 0.0){
+            return vec2(min(root1, root2), max(root1,root2));
+        } else if (root1 < 0.0 && root2 >= 0.0){
+            return vec2(root2,-1.0);
+        } else if (root1 >= 0.0 && root2 < 0.0){
+            return vec2(root1, -1.0);
+        }
+    }
+    else return vec2(-1.0, -1.0);
+}
+    mat4 tsMatrix(vec3 t, vec3 s) {
+        return mat4(s.x,0.,0.,0., 0.,s.y,0.,0., 0.,0.,s.z,0., t.x,t.y,t.z,1.);
+    }
+    mat4 rotyMatrix(float rad){
+     return mat4(
+           cos(rad), 0, sin(rad), 0, // first column 
+           0, 1, 0, 0, 
+           -sin(rad), 0, cos(rad), 0, // third column
+           0, 0, 0, 1
+        );
+    }
+
+    mat4 rotxMatrix(float rad){
+     return mat4(
+           1, 0, 0, 0, // first column 
+           0, cos(rad), sin(rad), 0, 
+           0, -sin(rad), cos(rad), 0, // third column
+           0, 0, 0, 1
+        );
+    }
+
+vec4 colorSquare(vec4 w, vec4 v){
+    vec3 T = vec3(0.0,0.0,-30.0);
+    vec3 S = vec3(1.0,1.0,1.0);
+    mat4 far = tsMatrix(-T/S, 1.0/S);
+    mat4 rotate = rotxMatrix(uTime)*rotyMatrix(uTime/2.0);
+
+    mat4 transform = rotate * far;
+
+    vec4 plane[6];
+    plane[0] = vec4(0,0,1,-1);     // front
+    plane[1] = vec4(0,0,-1,-1);    // back
+    plane[2] = vec4(-1,0,0,-1);   // left
+    plane[3] = vec4(1,0,0,-1);     // right
+    plane[4] = vec4(0,1,0,-1);     // bottom
+    plane[5] = vec4(0,-1,0,-1);   // top
+
+    vec3 colors[6];
+    colors[0] = vec3(1,1,0); // yellow
+    colors[1] = vec3(0,1,1); //cyan
+    colors[2] = vec3(1,0,0);
+    colors[3] = vec3(0,1,0);
+    colors[4] = vec3(0,0,1); // bottom
+    colors[5] = vec3(1,0,1);
+    vec3 color = vec3(0,0,0);
+    bool enter = false;
+    bool exit = false;
+    float enters;
+    float exits;
+
+    for (int i = 0; i < 6; i++){
+        vec4 L = plane[i]*transform;
+        
+        float lw = dot(L,w);
+        if (lw < 0.0){ // ray enters
+            if (enter){
+                float t = -1.0*dot(L,v)/lw;
+                if ( t > enters){
+                    enters = t;
+                    color = colors[i];
+                }
+            }else{
+                enters = -1.0*dot(L,v)/lw;
+                enter = true;
+                color = colors[i];
+            }
+            
+        }
+        else if (lw > 0.0){
+            if (exit){
+                exits = min(exits, -1.0*dot(L,v)/lw);    
+            }
+            else {
+                exits = -1.0*dot(L,v)/lw;
+                exit = true;
+            }
+        }    
+        else {
+            if (dot(L,v) > 0.0){
+                return vec4(0,0,0,1);
+            }
+        }
+    }
+    if ( enters <= exits ){
+        return vec4(color,1);
+    }
+    
+    return vec4(0,0,0,1);
+
+}
+vec4 getPixelColor(vec2 uv){
+    vec4 v = vec4(0.0, 0.0, fl, 1.0);
+    vec4 w = normalize(vec4(uv.x - 0.5, 0.5 - uv.y , -1.0*fl, 0.0));
+
+    return colorSquare(w,v);
+
+    Quadratic mySphere = translate(SPHERE, vec3(0.0,0.0, -20.0));
+    vec2 ts = solveQuadraticEquation(mySphere, w, v);
+    
+    if (ts.x >= 0.0){
+        return vec4(1,1,1,1);
+    }
+
+    return vec4(0,0,0,1.0);
+}
+
+void main(void) {
+    gl_FragColor = getPixelColor(vUV);
+}
+</script>
+
+<script>start()</script>

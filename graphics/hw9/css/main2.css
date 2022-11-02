@@ -1,0 +1,49 @@
+a{
+    color:black;    
+}
+h1,h2,h3{
+    font-size: 1em;
+    margin: 0;
+}
+
+body {
+    font-family: Verdana, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    padding: 20px 10px;
+    width: 900px;
+}
+
+#welcome {
+	font-weight: bold;
+	font-size: 20px;
+	border-bottom: 1px solid #666666;
+	margin-bottom: 10px;
+}
+.description {
+    padding-top: 10px;
+    width: 800px;
+    text-align:justify;    
+}
+
+.description header {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.description a{
+    color:#6C339F;
+    font-weight: bold;
+}
+.canvas {
+    display: inline-block;
+}
+.file_tree header {
+    padding-top: 10px;
+    border-top: 1px solid #666666;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.readme {
+    color:red;
+}

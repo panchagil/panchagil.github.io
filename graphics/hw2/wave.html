@@ -1,0 +1,46 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="script.js"></script>
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Wave Shader
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+The shader shows two waves, green and red. The blue lines are the sum of the other two.
+
+Move the mouse over the screen to move the green wave.
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+	
+	void main() {
+		// canvas size
+		float height = uViewportSize.y;
+		float width = uViewportSize.x;
+
+		// mouse position
+		vec2 mouse = vec2(uMouseLocation.x/width, uMouseLocation.y/height);
+		
+	  	vec2 p1 = vec2((1. + sin(uTime))/2.0,(1. + cos(uTime))/2.0);
+	  	vec2 p2 = mouse;
+	  
+	  	float ph1 = pow(distance(vUV, p1),2.0)*300.;
+	  	float ph2 = pow(distance(vUV, p2),2.0)*500.;
+
+	  	gl_FragColor = vec4(
+	  			sin(ph1 + uTime*20.),
+	  			sin(ph2 + uTime*20.),
+	  			0.0,
+	  			1.0);
+	}
+</script>
+
+<script>start()</script>

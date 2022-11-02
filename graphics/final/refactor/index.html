@@ -1,0 +1,29 @@
+<html>
+	<head>
+		<script type="text/javascript" src="src/webgl/gl_framebuffer.js"></script>
+		<script type="text/javascript" src="src/webgl/gl_shader.js"></script>
+		<script type="text/javascript" src="src/webgl/gl_helper.js"></script>
+
+		<script type="text/javascript" src="src/cg/perlin_noise.js"></script>
+		<script type="text/javascript" src="src/cg/matrix.js"></script>
+		<script type="text/javascript" src="src/cg/shapes.js"></script>
+		<script type="text/javascript" src="src/cg/entity.js"></script>
+		<script type="text/javascript" src="src/cg/app.js"></script>
+		<script type="text/javascript" src="src/cg/scene/glow_scene.js"></script>
+
+		<!-- Initialize Scene -->
+		<script type="text/javascript">
+			var app = new CG.App();
+			var fullscene = new CG.Scene.FinalScene();
+			window.onload = function(){
+				app.start(fullscene, document.getElementById("fullscene"));
+			}			
+		</script>
+	</head>
+	<body>
+		<section class="webgl">
+			<canvas id="fullscene" width="650" height="487"></canvas>
+		</section>
+
+	</body>
+</html> 	

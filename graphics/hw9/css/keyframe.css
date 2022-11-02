@@ -1,0 +1,60 @@
+.keyframe {
+	margin-top: 10px;
+	position: relative;
+}
+.keyframe table {
+	font-size: 12px;
+	border: 1px solid black;
+	border-collapse:collapse;
+}
+.keyframe td {
+	border: 1px solid black;
+	min-width: 10px;
+	height: 20px;
+}
+.keyframe th {
+	text-align: left;
+	border: 1px solid black;
+	min-width: 100px;
+	height: 20px;
+	padding-left: 5px;
+}
+
+.keyframe td.tenth {
+	border-left: 2px solid black;
+}
+.keyframe td.active{
+	background: red;
+}
+.keyframe .timer {
+	position: absolute;
+	top:0px;
+	border-right: 1px solid red;
+	width: 107px;
+}
+
+.keyframe td.scheduled {
+	background-color: #cccccc;
+}
+.keyframe tr.active{
+	background-color: red;
+}
+.keyframe .active_frame {
+	background-color: #ccffff;	
+}
+
+.keyframe .sequence {
+	margin: 10px;
+}
+
+.keyframe .manual {
+	margin: 10px;
+}
+
+.keyframe .manual em {
+	font-weight: bold;
+}
+
+.keyframe table {
+	margin: 10px;
+}

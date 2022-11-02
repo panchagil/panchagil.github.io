@@ -1,0 +1,192 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+        <link rel="stylesheet" href="css/effects.css" />
+	
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <script type="text/javascript" src="scripts/particle/main_v2.js"></script>
+		<script id="simple_color" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform bool opacity;
+          	
+		  void main(void) {
+		  	vec3 c = vec3(p[0],p[1],p[2]);
+            gl_FragColor = vec4(gammaCorrect(c),1);
+
+          }
+      </script>
+      <script id="default" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          	uniform float p[10];
+			uniform vec3 lDir;
+			uniform bool isGlow;
+			varying vec3 vNormal;
+			
+			void main(void) {
+				vec3 normal = normalize(vNormal);
+				float ldn = dot(lDir, normal);
+				float diffuse = isGlow ? max(0., ldn): max(0., ldn);
+				
+				vec3 refl = 2. * ldn * normal - lDir;
+				float specular = pow(max(0., refl.z), p[9]);
+				vec3 c = vec3(p[0],p[1],p[2]) +
+						vec3(p[3],p[4],p[5]) * diffuse +
+						vec3(p[6],p[7],p[8]) * specular;
+				
+				gl_FragColor = vec4(gammaCorrect(c), 1.0);
+			}
+      </script>
+      <script id="glow" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          	uniform float p[10];
+			uniform vec3 lDir;
+			uniform bool isGlow;
+			varying vec3 vNormal;
+
+			
+			void main(void) {
+				float alpha = 0.0;
+				if (isGlow){
+					alpha = 1.0;
+				}
+				vec3 c = vec3(p[3],p[4],p[5]);
+				
+				gl_FragColor = vec4(gammaCorrect(c), alpha);
+			}
+      </script>
+
+      <script type="text/javascript">
+        (function() {
+        	var cyl = function(u, v) {
+				var theta = 2 * Math.PI * u;
+				var r = 1.0;
+				var x = r * Math.cos(theta);
+				var z = r * Math.sin(theta);
+				var y = 2 * v - 1.0
+				return [x, y, z];
+			}
+
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+			var update = function(time){
+				this.updateCamera({
+					theta: document.getElementById("camera.theta").value,
+					y: document.getElementById("camera.y").value,
+					zoom: document.getElementById("camera.zoom").value
+				});
+				
+			};
+			var setup = function() {
+
+				var cylinderMesh = CG.shapes.createParametric(1/20, 1/10, cyl);
+				var ldir = [0.7, 0, -0.3];
+				var grey = this.grey;
+				var blue = this.blue;
+				var shader = this.shader;
+
+
+				this.world = this.addObject('world');
+				this.world.transform = mat4.translation(0,-2,-10);
+
+				this.bottom = this.world.addObject('bottom', this.glHelper.createMesh(cylinderMesh, shader));	
+				this.bottom.geometry.material.setUniform('p', grey);
+				this.bottom.geometry.material.setUniform('lDir', ldir);
+				this.bottom.geometry.material.setUniform('isGlow', false);
+				
+				this.middle = this.world.addObject('middle', this.glHelper.createMesh(cylinderMesh, shader));	
+				this.middle.transform = mat4.translation(0,2,0);
+				this.middle.geometry.material.setUniform('p',blue);
+				this.middle.geometry.material.setUniform('lDir', ldir);
+				this.middle.geometry.material.setUniform('isGlow', true);
+				
+				this.top = this.world.addObject('top', this.glHelper.createMesh(cylinderMesh, shader));
+				this.top.transform = mat4.translation(0,4,0);
+				this.top.geometry.material.setUniform('p', grey);
+				this.top.geometry.material.setUniform('lDir', ldir);
+				this.top.geometry.material.setUniform('isGlow', false);
+
+				this.front = this.world.addObject('bottom', this.glHelper.createMesh(cylinderMesh, shader));	
+				this.front.transform = mat4.translation(1.5,0,1.0);
+				this.front.geometry.transform = mat4.multiply(
+					mat4.translation(0,-1.0,0),
+					mat4.multiply(
+						mat4.scale(1,1.5,1),
+						mat4.translation(0,1,0)
+					));
+				this.front.geometry.material.setUniform('p', grey);
+				this.front.geometry.material.setUniform('lDir', ldir);
+				this.front.geometry.material.setUniform('isGlow', false);
+				
+
+			}
+			scene = CG.main.newScene("canvas");
+			scene.grey = [.1, .1, .1, .5, .5, .5, 0.0, 0.0, 0.0, 2];
+			scene.blue = [.0, .1, .1, .0, 1.0, 1.0, 0.0, 0.0, 0.0, 2];
+			scene.shader = 'default';
+			scene.setup = setup;
+			scene.update = update;
+			
+			var blur = CG.main.newScene("blur_canvas");
+			blur.shader = 'glow';
+			blur.grey = [.0, .0, .0, .0, .0, .0, 0.0, 0.0, 0.0, 2];
+			blur.blue = [.0, .1, .1, .0, 1.0, 1.0, 0.0, 0.0, 0.0, 2];
+			
+			blur.setup = function(){
+				setup.call(this);
+				this.middle.geometry.transform = mat4.scale(1.0);
+			};
+			blur.update = update;
+
+
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				startTime = (new Date).getTime();
+				_tick();
+				
+	        }
+		})();
+        </script>
+    </head>
+    <body class="dark_theme">
+    	<header id="welcome"> Glow Effect</header>
+    	<div class="wrapper" style="width: 500px">
+    		<p class="details">
+    			The scene is rendered into two canvases, one with the full scene and another one with just the glowing objects. The 'glow-canvas' has some css effects to make it look like is glowing; the animation of the glow and its colors is also done with css.
+		    </p>
+		    <p class="details">
+    			You can use the [rustic] camera controls to see the real-time rendering of the glow.
+		    </p>
+    		<div id='controllers'>
+    		<div>
+	    		<div>
+	    			left/right: <input id="camera.theta" type="number" value="0"/>
+	    		</div>
+	    		<div>
+	    			up/down: <input id="camera.y" type="number" value="0"/>
+	    		</div>
+	    		<div>
+	    			zoom: <input id="camera.zoom" type="number" value="7"/>
+	    		</div>
+	    	</div>
+    	</div>
+    	  <canvas id="canvas" class="float_canvas" data-render="gl" style="display: block" width="600" height="600"></canvas>
+    	  <canvas id="blur_canvas" class="float_canvas glow" style="display: block; width:600px; height:600px;" data-render="gl" width="300px" height="300px"></canvas>
+    	</div>
+    	
+    </body>
+</html>

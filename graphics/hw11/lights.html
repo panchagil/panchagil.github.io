@@ -1,0 +1,211 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+	
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <script type="text/javascript" src="scripts/particle/main_v2.js"></script>
+
+		<!-- README :
+			
+
+		  -->
+		<script id="particlesystem_blend1" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+		  varying vec2 vUV;
+		  uniform float uTime;
+          	
+          uniform float particles[480];
+          
+          vec4 blend(vec4 source, vec4 destination){
+          	vec4 c_source = source * source.a;
+          	return destination + c_source;
+          }
+          vec4 intersectParticle(vec2 position, vec3 color, float size){
+          	float d = distance(position, vUV);
+          	float a = 1.0 - d * 200.0/size;
+          	return vec4(color, max(a,0.0));
+          }
+
+          void main(void) {
+          	vec4 color = vec4(0,0,0,1);
+          	for (int i = 0; i < 80; i++){
+          		vec4 source = intersectParticle(
+          			vec2(particles[6*i],particles[6*i+1]), 
+          			vec3(particles[6*i + 2], particles[6*i + 3], particles[6*i + 4]),
+          			particles[6*i + 5]);
+          		color = blend(source, color);
+          	}
+
+          	gl_FragColor = vec4(gammaCorrect(color.rgb), color.a);	
+          }
+      </script>
+      <script id="particlesystem_blend2" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+		  varying vec2 vUV;
+		  uniform float uTime;
+          	
+          uniform float particles[480];
+          
+          vec4 blend(vec4 source, vec4 destination){
+          	vec4 c_source = source * source.a;
+          	return destination + c_source;
+          }
+          vec4 intersectParticle(vec2 position, vec3 color, float size){
+          	float d = distance(position, vUV);
+          	float a = 1.0 - d * 200.0/size;
+          	return vec4(color, max(a,0.0));
+          }
+
+          void main(void) {
+          	vec4 color = vec4(0,0,0,0);
+          	for (int i = 0; i < 80; i++){
+          		vec4 source = intersectParticle(
+          			vec2(particles[6*i],particles[6*i+1]), 
+          			vec3(particles[6*i + 2], particles[6*i + 3], particles[6*i + 4]),
+          			particles[6*i + 5]);
+          		color = blend(source, color);
+          	}
+
+          	gl_FragColor = vec4(gammaCorrect(color.rgb), color.a);	
+          }
+      </script>
+
+      <script type="text/javascript">
+        (function() {
+        	
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+
+			var masterScene = CG.main.newScene("canvas1");
+			masterScene.setup = function() {
+				this.glHelper.blend = true;
+				this.glHelper.depthtest = false;	
+
+				var plane = CG.shapes.createPlane();
+
+				this.world = this.addObject('world');
+				this.particle = this.world.addObject('p', this.glHelper.createMesh(plane, 'particlesystem_blend1'));	
+				this.particle.transform = mat4.scale(2.0,2.0,1.0);
+
+				this.particles = [];
+				this.speed = [];
+				for (var i = 0; i < 80; i++){
+					this.particles.push(Math.random()); // x
+					this.particles.push(Math.random()); // y
+					this.particles.push(Math.random()); // r
+					this.particles.push(Math.random()); // g
+					this.particles.push(Math.random()); // b
+					this.particles.push(15 + 10*Math.random()); // b
+					this.speed.push(0.1 + Math.random());
+				}
+				this.particle.geometry.material.setUniform('particles', this.particles);
+				
+			}
+			
+			masterScene.update = function(time){
+				var depthtest = document.getElementById("depthtest").checked;
+				var blend = document.getElementById("blend").checked;
+
+				this.glHelper.depthtest = depthtest;
+				this.glHelper.blend = blend;
+
+				this.particle.geometry.material.setUniform('p', [1,1,0]);
+				this.particle.geometry.material.setUniform('uTime', time);
+
+
+				for (var i = 0; i < 60; i++){
+					this.particles[6*i + 1] +=-0.001 * this.speed[i]; 
+					this.particles[6*i] += 0.001*Math.cos(2*time + i); 
+					if (this.particles[6*i + 1] < 0){
+						this.particles[6*i + 0] = Math.random(); // x
+						this.particles[6*i + 1] = 1.1; // y
+						this.particles[6*i + 2] = Math.random(); // r
+						this.particles[6*i + 3] = Math.random();
+						this.particles[6*i + 4] = Math.random();
+						this.particles[6*i + 5] = 10 + 10*Math.random(); // b
+						this.speed[i] = 0.5 + Math.random();
+					}
+				}
+			}
+
+			var slaveScene = CG.main.newScene("canvas2");
+			slaveScene.setup = function() {
+				var plane = CG.shapes.createPlane();
+				this.glHelper.blend = true;
+				this.glHelper.depthtest = false;	
+
+				this.world = this.addObject('world');
+				this.particle = this.world.addObject('p', this.glHelper.createMesh(plane, 'particlesystem_blend2'));	
+				this.particle.transform = mat4.scale(2.0,2.0,1.0);
+				this.particle.geometry.material.setUniform('particles', masterScene.particles);
+				
+			}
+
+			slaveScene.update = function(time){
+				var depthtest = document.getElementById("depthtest").checked;
+				var blend = document.getElementById("blend").checked;
+
+				this.glHelper.depthtest = depthtest;
+				this.glHelper.blend = blend;
+
+				this.particle.geometry.material.setUniform('p', [1,1,0]);
+				this.particle.geometry.material.setUniform('uTime', time);
+			}
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				startTime = (new Date).getTime();
+				_tick();
+
+				
+	        }
+		})();
+        </script>
+    </head>
+    <body class="dark_theme large">
+    	<div class="wrapper" style="width: 400px">
+	    	<header id="welcome"> Particle System with the Fragment Shader</header>
+	    	<p class="details">
+	    		In this example we have only one object, a plane. The fragment-shader of the plane receives a list of particles [xy,color,size] and paints it appropriately.
+	    	</p>
+	    	<p class="details">
+	    		Both canvas use a simple implementation of blending [SRC_ALPHA, ONE]: the source is the current particle we are evaluating, while the color is the color we already accumulated painting the other objects/particles.
+	    	</p>
+	    	<p>
+	    		color = source * source.a + color;
+	    	</p>
+	    	<p class="details">
+	    		The idea for this example came from an image I had in my head. Not sure where I saw something like it, I think some movies. The original idea was to do something like what you see in the first canvas, simply different lights shinning. The idea for the second canvas I found it playing with the parameters of the vertex shader: in the first one the background is black with alpha = 1, but in the second one the alpha of the background is 0.
+	    	</p>
+	    	<p class="details">
+	    		So, in the first canvas our variable <em>color</em> always has alpha = 1, and that is why we see the complete circle. The transparency is simulated by multiplying the source color by its alpha. In the second canvas the final alpha is a combination of the alphas of all the intersecting circles: is the sum of the squares of the alphas.
+	    	</p>
+	    	<section class="left-menu" id="controllers" style="top: 400px">
+			  	<header> WebGl Controllers: </header>
+			  	<div>
+			  		<input id="depthtest" value="1" type="checkbox"> Depth Test Enabled
+			  	</div>
+			  	<div>
+			  		<input id="blend" value="1" type="checkbox" checked="checked"> Blending Enabled
+			  	</div>
+			</section>
+			<canvas class="ligths" id="canvas1" data-render="gl" width="600" height="300"></canvas>
+    		<canvas class="ligths" id="canvas2" data-render="gl" width="600" height="300"></canvas>
+    	</div>
+    </body>
+</html>

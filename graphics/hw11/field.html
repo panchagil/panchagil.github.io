@@ -1,0 +1,175 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+	
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <script type="text/javascript" src="scripts/particle/main_v1.js"></script>
+		<!-- README :
+			main_v1 is not very well written. I'm working on main_v2 that was used for the fire scene.
+			Should refactor this once I implement the force fields features in main_v2
+
+		  -->
+		<script id="simple_color" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform bool opacity;
+          	
+		  void main(void) {
+		  	vec3 c = vec3(p[0],p[1],p[2]);
+            gl_FragColor = vec4(gammaCorrect(c),1);
+
+          }
+      </script>
+      <script id="particle" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          varying vec2 vUV;
+          uniform bool textureEnabled;
+          	
+		  void main(void) {
+		    vec3 c = vec3(p[0],p[1],p[2]);
+            float dist = distance(vUV,vec2(0.5,0.5));
+        	if (dist> 0.5 && textureEnabled){
+        		discard;
+        	}
+        	float a = textureEnabled ? 1.0 - 2.0*dist : 1.0;
+        	gl_FragColor = vec4(gammaCorrect(c), a*a*a);
+           
+          }
+      </script>
+
+      <script type="text/javascript">
+        (function() {
+        	
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+
+			// TODO: should refactor to use particle/main_v2.js
+			var particleSystem = Particle.system.instance();
+			var emiter = particleSystem.addemiter({x:-20,y:0},20, 10,30, 3, 5);
+			var field1 = particleSystem.addfield({x:10,y:0},-700);
+
+			
+			var startTime;
+        	var plane = CG.shapes.createPlane();
+        	var sphere = CG.shapes.createSphere(5,5);
+
+        	// particles
+        	var ldir = [1.0, 0.0, -0.5];
+
+			var fieldColor = [1., 0., 0.];
+			var particleColor = [.0, .3, 1.0];
+        	var world, field_model1, field_model2, particles_models = [];
+
+			scene = CG.main.newScene("canvas");
+			scene.setup = function() {
+				this.glHelper.blend = true;
+				this.glHelper.depthtest = false;	
+
+				var fieldmesh = scene.glHelper.createMesh(plane, 'particle');
+				fieldmesh.material.setUniform('p', fieldColor);
+				fieldmesh.material.setUniform('opacity', false);
+				fieldmesh.transform = mat4.scale(0.5);
+
+
+				this.particlemesh = scene.glHelper.createMesh(plane, 'particle');
+				this.particlemesh.material.setUniform('p', particleColor);
+				this.particlemesh.material.setUniform('textureEnabled', true);
+				this.particlemesh.transform = mat4.scale(0.8);
+				
+				world = scene.addObject('world');
+				
+				world.transform = mat4.multiply(
+					mat4.scale(0.04),
+					mat4.zRotation(0)
+					);
+
+				for (var i = 0; i < particleSystem.maxParticles; i++){
+					 var p = world.addObject('p'+i, this.particlemesh);	
+					 p.draw = false;
+					 particles_models.push(p);
+				}
+
+				field_model1 = world.addObject('field', fieldmesh);
+
+			}
+			
+			scene.update = function(time){
+				var depthtest = document.getElementById("depthtest").checked;
+				var blend = document.getElementById("blend").checked;
+				var texture = document.getElementById("texture").checked;
+
+				this.glHelper.depthtest = depthtest;
+				this.glHelper.blend = blend;
+
+				field_model1.transform = mat4.translation(field1.position.x, field1.position.y, 0);
+				particleSystem.update(time);
+
+				for (var i = 0; i < particleSystem.maxParticles; i++){
+					if (particleSystem.particles.length > i){
+						var p = particleSystem.particles[i] 
+						particles_models[i].transform = mat4.translation(p.position.x, p.position.y, 0);
+						particles_models[i].draw = true;
+					}
+					else{
+						particles_models[i].draw = false;	
+					}
+				}
+				this.particlemesh.material.setUniform('textureEnabled', texture);
+			}
+
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				startTime = (new Date).getTime();
+				_tick();
+
+				
+	        }
+		})();
+        </script>
+    </head>
+   <body class="dark_theme">
+    	<div class="wrapper">
+    		<header id="welcome"> Particle System and Force Fields</header>
+	    	<div class="wrapper" style="width:300px">
+	    		<p class="details">
+		    		The particles interact with a field (small red dot) that repels them. In each frame we calculate the force applied in each particle, and update velocity and position.
+		    	</p>
+		    	<p class="details">
+		    		The is a proof of concept and needs a lot of refactoring. I'm working on a v2 of the ParticleSystem that is more flexible, you can see it in the fire scene <a href="fire.html">here </a>. This example is based in the work done by <a href="https://plus.google.com/108269395644621881233/posts"> Jarrod Overson</a> that you can find <a href="http://jarrodoverson.com/static/demos/particleSystem/">here</a>
+		    	</p>
+	    		<section  style="top: 200px" class="left-menu" id="controllers">
+				  	<header> WebGl Controllers: </header>
+				  	<div>
+				  		<input id="depthtest" value="1" type="checkbox"> Depth Test Enabled
+				  	</div>
+				  	<div>
+				  		<input id="blend" value="1" type="checkbox" checked="checked"> Blending Enabled
+				  	</div>
+			  	</section>
+			  	<section  style="top: 300px" class="left-menu" id="controllers">
+				  	<header> Scene Controllers: </header>
+				  	<div>
+				  		<input id="texture" value="1" type="checkbox" checked="checked"> Texture Enabled
+				  	</div>
+			  	</section>
+    		<canvas style="top: 10px" id="canvas" data-render="gl" width="600" height="300"></canvas>
+    	</div>
+    </body>
+</html>

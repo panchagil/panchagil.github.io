@@ -1,0 +1,146 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="vendor/CodeMirror/codemirror.js"></script>   
+<script src="vendor/CodeMirror/mode/glsl.js"></script>
+<link rel="stylesheet" href="vendor/CodeMirror/codemirror.css">  
+<link rel="stylesheet" href="vendor/CodeMirror/theme/monokai.css">
+<link rel="stylesheet" href="style/editor.css">
+<script type="text/javascript" src="scripts/editor.js"></script>
+<script type="text/javascript" src="scripts/noise.js"></script>
+<script type="text/javascript" src="scripts/glsl_matrix.js"></script>
+<script type="text/javascript" src="scripts/glsl_shapes.js"></script>
+<script type="text/javascript" src="scripts/script.js"></script> 
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Normal Bump 
+</script>
+
+<script id="description" type="text/plain">
+This shader implements (i) phong reflectance with (ii) noise it its surface normal
+</script>
+
+<script id="shader" type="x-shader/x-fragment">
+#define M_PI 3.1415926535897932384626433832795
+
+/** README
+* Use any of the VECTOR_NOISE functions and modify the params
+* K1 and K2 to get different effects.
+
+* NOTE: the turbulence function seems to be more unstable in windows
+**/ 
+// #define VECTOR_NOISE vectorTurbulence
+// #define VECTOR_NOISE vectorNoise
+#define VECTOR_NOISE vectorAbsNoise
+#define K1 0.4
+#define K2 8.0
+
+vec3 vectorAbsNoise(vec3 p){
+    float x = abs(noise(p.xyz));
+    float y = abs(noise(p.yzx));
+    float z = abs(noise(p.zxy));
+    return vec3(x,y,z);
+} 
+
+vec3 vectorNoise(vec3 p){
+    float x = noise(p.xyz);
+    float y = noise(p.yzx);
+    float z = noise(p.zxy);
+    return vec3(x,y,z);
+}
+
+vec3 vectorTurbulence(vec3 p){
+    float x = turbulence(p.xyz);
+    float y = turbulence(p.yzx);
+    float z = turbulence(p.zxy);
+    return vec3(x,y,z);
+}
+
+vec4 noiseNormal(vec4 normal){
+    vec3 n = normal.xyz;
+    n = n + K1 * VECTOR_NOISE(n * K2);
+    return normalize(vec4(n,0));
+}
+
+
+
+// ========== SCENE ================= //
+
+#define N_CUBES 1
+#define N_QUADS 1
+#define N_SHAPES 1
+#define N_LIGHTS 1
+
+const float fl = 5.0;
+vec4 L1 = normalize(vec4(-0.5,-0.3,0.5 ,0.0));
+const float AMBIENT = 0.3;
+const vec4 TOP = vec4(0,-1,0,0); // at y = 0
+
+Light lights[N_LIGHTS];
+Quadratic sphere;
+vec4 plane;
+
+#define HIT_TEST(h, hit) if (h.t_en >= 0.0 && (h.t_en < hit.t_en || hit.t_en < 0.0)) hit = h
+Hit getFirstHit(vec4 v, vec4 w){
+    Hit hit = NO_HIT;
+    Hit h = hitQuadratic(sphere,v,w);
+    HIT_TEST(h,hit);
+    return hit;
+}
+
+
+
+#define CLAMP_COLOR(color) vec3(clamp(color.x,0.0,1.0),clamp(color.y,0.0,1.0),clamp(color.z,0.0,1.0))
+vec4 getPixelColor(vec2 uv){  
+    vec4 v = vec4(0.0, 0.0, fl, 1.0);
+    vec4 w = normalize(vec4(uv.x - 0.5, 0.5 - uv.y , -1.0*fl, 0.0));
+
+    Hit hit  = getFirstHit(v, w);
+    if (hit.t_en < 0.0){
+        return vec4(0,0,0,1);   
+    }
+    
+    vec4 s = v + hit.t_en * w;
+    vec3 color = hit.material.ambient;
+    vec4 normal = noiseNormal(hit.normal);
+
+    for (int i =0; i < N_LIGHTS; i++){
+        Light light = lights[i];
+        vec4 L = normalize(vec4(light.position.xyz,0));
+        if(!getFirstHit(s + 0.0001 * L, L).isHit){
+           // with this form of calculating the highlight we don't
+            // need to check if is negative. And for some reason the other 
+            //way behave odd in windows.
+            vec4 h = normalize(L - w);
+
+            vec3 cd = hit.material.diffuse*max(0.0, dot(normal, L));
+            vec3 cs = hit.material.specular*pow(dot(h,normal),hit.material.power);
+            color = color + light.color * (CLAMP_COLOR(cd) + CLAMP_COLOR(cs)); 
+        }
+        
+    }
+    return vec4(CLAMP_COLOR(color), 1);
+}
+
+Material sMaterial = newMaterial(vec3(0.0,0.0,0.1),vec3(0.8,0.1,0.7), vec3(0.146,1.0,0.975), 12.0);
+
+void createScene(){
+    
+    sphere = newSphere(sMaterial);
+    sphere.transform = tMatrix(vec3(0,0,-12));
+
+    // lights
+    lights[0] = Light(normalize(vec4(-0.5,-0.3,0.5,0.0)), vec3(1,1,1)); // white sun light
+
+}
+void main(void) {
+    createScene();
+    gl_FragColor = getPixelColor(vUV);
+}
+
+
+</script>
+
+<script>start()</script>

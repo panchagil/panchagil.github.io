@@ -1,0 +1,70 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+        <link rel="stylesheet" href="css/effects.css" />
+	
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <!-- refactor -->
+        <script type="text/javascript" src="scripts/webgl2/gl_shader.js"></script>
+        <script type="text/javascript" src="scripts/scenes/glowScene.js"></script>
+    
+      
+    </head>
+    <body class="dark_theme">
+    	<header id="welcome"> Final Project Scene</header>
+    	<div class="wrapper" style="width: 400px" >
+            <p class="details"> Tip: You can move the mouse to move the light </p>
+    		<p class="details"> The scene implements some of the effects we saw during the semester</p>
+            <div class="details">
+            <ul>
+                <li> Ground and Grass
+                    <ul>
+                        <li> The ground was created using <em>Perlin Noise</em> over a plane</li>
+                        <li> The grass was implemented using <em>Shell Texturing ~ Fur</em></li>          
+                    </ul>
+                </li>
+                <li> Trees 
+                    <ul>
+                        <li> The shape of the trees is obtain using cylinder and adding Perlin Noise in each dimension</li>
+                        <li> The texture of the trees uses <em>texture mapping</em> and <em>normal mapping</em></li>
+                    </ul>
+                </li>
+                <li> Sky 
+                    <ul>
+                    <li> Perlin Noise for the white small stars  </li>
+                    <li> and <em>particles</em> for the shinny starts. </li>
+                    <li>All this is implemented in the <em>vertex-shader</em>, and the shinny starts are positioned at random</li>
+                    </ul>
+                </li>
+                <li> Glow and Lighs
+                    <ul>
+                        <li> For lights we implement <em>point light</em> and <em>ambient light</em>. The glowing sphere acts as a point light in the scene
+                        <li> The <em>glow</em> is implemented rendering the scene with special vertex-shaders to a smaller canvas; that canvas has a css filter to make it blur; and I use css positioning to superpose them.
+                    </ul>
+                </li>
+                <li> Fog
+                    <ul>
+                        <li> The scene also has a <em>fog</em> effect; the effect is greater at ground level.</li>
+                        <li> The fog is lighter in the higher parts background/sky. This was mainly a aesthetics decision</li>
+                    <ul>
+                </li>
+            </ul>
+            </div>
+    	
+    	  <canvas id="canvas" class="float_canvas" data-render="gl" style="display: block; top:10px;left:450px" width="600" height="400"></canvas>
+    	  <canvas id="glow-canvas" class="float_canvas  glow rock" data-render="gl" style="display: block; width:600px; height:400px; top:10px;left:450px" width="300" height="200"></canvas>
+    	</div>
+    	
+    </body>
+</html>

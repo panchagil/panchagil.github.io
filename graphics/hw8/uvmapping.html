@@ -1,0 +1,64 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+        <script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_shader.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.v1.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+        <script type="text/javascript" src="uvmapping.js"></script>
+        <script id="uv_mapping" type="x-shader/x-fragment">
+          uniform sampler2D uSampler;
+          uniform sampler2D uNormalSampler;
+          uniform float p[10];
+          uniform vec3 lDir;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          varying vec4 vXYZW;
+
+          vec3 ungammaCorrect(vec3 c) { return vec3(pow(c.x,2.222),pow(c.y,2.222),pow(c.z,2.222)); }
+
+          vec3 gammaCorrect(vec3 c) { return vec3(pow(c.x,.45),pow(c.y,.45),pow(c.z,.45)); }
+
+          void main(void) {
+            vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV*2.0).xyz);
+            vec3 nrgb = ungammaCorrect(texture2D(uNormalSampler, vUV*2.0).xyz);
+            vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+            normal = normalize(normal - 0.7*nrgb);
+            
+            
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            c = c * trgb;
+            gl_FragColor = vec4(gammaCorrect(c), 1.);
+          }
+      </script>
+      
+      <script type="text/javascript">
+          window.onload = function(){
+            CG.main.setClearColor([1.0,1.0,1.0,1.0]);
+            CG.main.initAll();
+            CG.main.run();
+          }
+        </script>
+    </head>
+    <body>
+      
+      <canvas id="spline" data-render="gl" width="400" height="400"></canvas>
+      
+    </body>
+</html>

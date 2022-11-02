@@ -1,0 +1,146 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+	
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/webgl/glsl_utils.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_shaderhelper.js"></script>
+        <script type="text/javascript" src="scripts/webgl/gl_helper.js"></script>
+        
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/cg_matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <script type="text/javascript" src="scripts/particle/main_v2.js"></script>
+
+		<!-- README :
+			
+
+		  -->
+		<script id="simple_color" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform float p[10];
+          uniform bool opacity;
+          	
+		  void main(void) {
+		  	vec3 c = vec3(p[0],p[1],p[2]);
+            gl_FragColor = vec4(gammaCorrect(c),1);
+
+          }
+      </script>
+      <script id="particle" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform sampler2D uSampler;
+          uniform float p[4];
+          varying vec2 vUV;
+          	
+		  void main(void) {
+		  	vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+
+		    vec3 c = vec3(p[0],p[1],p[2]);
+            float a = trgb.x * p[3];
+        	gl_FragColor = vec4(gammaCorrect(c), pow(a,.45));
+           
+          }
+      </script>
+
+      <script type="text/javascript">
+        (function() {
+        	
+			var _tick = function() {
+				var time = ((new Date).getTime() - startTime) / 1000;
+				CG.main.update(time);
+				requestAnimationFrame(_tick);
+			};
+
+			scene = CG.main.newScene("canvas");
+
+			scene.setup = function() {
+				scene.glHelper.blend = true;
+				scene.glHelper.depthtest = false;	
+
+				this.particleSystem = new Particle_v2.main.ParticleSystem();
+				this.world = scene.addObject('world');
+
+				/*
+				* create a set of planes
+				* set is as big as the maximum particles of the system
+				*/
+				this.particles = [];
+				var plane = CG.shapes.createPlane();
+				for (var i = 0; i < this.particleSystem.max_particles; i++){
+					var particle = this.world.addObject('p', scene.glHelper.createMesh(plane, 'particle'));	
+					particle.geometry.material.setUniform('p',[1,0,0]);
+					particle.geometry.material.setSampler2D("uSampler", "img/fire_particle2.png");
+					particle.geometry.transform = mat4.scale(0.3);
+					this.particles.push(particle);
+				}
+
+			}
+			
+			scene.update = function(time){
+				this.particleSystem.update(time);
+				var depthtest = document.getElementById("depthtest").checked;
+				var blend = document.getElementById("blend").checked;
+
+				scene.glHelper.depthtest = depthtest;
+				scene.glHelper.blend = blend;
+
+				// draw the particles
+				for (var i = 0; i < this.particleSystem.max_particles; i++){
+					if (this.particleSystem.particles.length > i){
+						var p = this.particleSystem.particles[i];
+						this.particles[i].transform  = mat4.multiply(
+							mat4.translation(p.position.x, p.position.y,0),
+							mat4.scale(p.size)
+							);
+						this.particles[i].geometry.material.setUniform('p', p.color);
+						this.particles[i].draw = true;		
+					}else{
+						this.particles[i].draw = false;
+						
+					}
+				}
+			}
+
+
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				CG.main.initAll();
+				startTime = (new Date).getTime();
+				_tick();
+
+				
+	        }
+		})();
+        </script>
+    </head>
+    <body class="dark_theme">
+    	<header id="welcome"> Particle System for Fire animation</header>
+    	<div class="wrapper" style="width:500px">
+    		<p class="details">
+    			Here each particle is a plane using a fragment shader that receives as parameters the color of the particle, and the texture to use for the alpha channel. In each frame we update the ParticleSystem that emits and updates particles; the information of the ParticleSystem is used to update the position of the planes and the values passed to the shader.
+		    </p>
+		    <p class="details">
+		    	The particle system is independent of the rest of the framework and could be use with a 2d-canvas, or even with a DOM based scene.
+		    </p>
+		    <p class="details">
+		    Inspired in <a href='http://onebyonedesign.com/'>this</a> on-line particle editor (flash) done by Devon O. Wolfgang 
+		    </p>
+    	
+    		<section style='top: 240px;' class="left-menu" id="controllers">
+			  	<header> WebGl Controllers: </header>
+			  	<div>
+			  		<input id="depthtest" value="1" type="checkbox"> Depth Test Enabled
+			  	</div>
+			  	<div>
+			  		<input id="blend" value="1" type="checkbox" checked="checked"> Blending Enabled
+			  	</div>
+		  </section>
+		  <canvas id="canvas" data-render="gl" width="600" height="600"></canvas>
+    	</div>
+    </body>
+</html>

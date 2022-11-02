@@ -1,0 +1,213 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+        <script type="text/javascript" src="shader/libs.js"></script>
+        <script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_shader.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.v1.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+       
+        <!-- We add a small script that reads that data-include list and adds the extra
+        code to our shader. In this case the gamma correction functions are added
+
+        The shader reads a texture for the color, and another one for normal mapping
+         -->
+        <script id="uv_mapping" type="x-shader/x-fragment" data-include="glsl_gammacorrect">
+          uniform sampler2D uSampler;
+          uniform sampler2D uAlphaSampler;
+          uniform float p[10];
+          uniform vec3 lDir;
+          uniform bool textureEnabled;
+          uniform bool alphaEnabled;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          varying vec4 vXYZW;
+			
+		  void main(void) {
+          	vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+          	vec3 argb = ungammaCorrect(texture2D(uAlphaSampler, vUV).xyz);
+            vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+
+            if (alphaEnabled && (argb.r < 0.5)){
+            	discard;
+            }
+            
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            if (textureEnabled){
+            	c = c * trgb;
+            }
+            gl_FragColor = vec4(gammaCorrect(c),1.0);
+          }
+      </script>
+      <script type="text/javascript">
+        (function() {
+			
+			// HTML controllers 
+			var onload = window.onload || function(){};
+			window.onload = function(){
+				onload();
+				var textureEl = document.getElementById("e_texture_map");
+				textureEl.onclick = function(){
+					textureEnabled = this.checked;	
+					var someElem = document.querySelectorAll('.texture');
+					for (var i = 0; i < someElem.length; i++) {
+					    someElem[i].classList.toggle('greyscale');
+					}
+				}
+
+				var alphaEL = document.getElementById("e_alpha_map");
+				alphaEL.onclick = function(){
+					alphaEnabled = this.checked;	
+					var someElem = document.querySelectorAll('.alpha');
+					for (var i = 0; i < someElem.length; i++) {
+					    someElem[i].classList.toggle('greyscale');
+					}
+				}
+			}
+
+			var add3DNoise = function(pt, noise, a, oct) {
+				pt[0] += a * Perlin.noise(pt[0] * oct, pt[1] * oct, noise * oct);
+				pt[1] += a * Perlin.noise(pt[1] * oct, pt[2] * oct, noise * oct);
+				pt[2] += a * Perlin.noise(pt[2] * oct, pt[0] * oct, noise * oct);
+
+				return pt;
+			}
+
+			var noise_plane = function(noise){
+				return function(u,v){
+					var pt = [u - 0.5, v -0.5, 0];
+					return add3DNoise(pt, noise, 0.4, 1.3);
+				}
+			}
+			
+			
+			// WEBGL Scene
+			var textureEnabled = true;
+			var alphaEnabled = true;
+
+			// set of leafs object we draw
+			var leafs = [];
+
+			// two canvas
+			var back_scene = CG.main.newScene("back_canvas");
+			var front_scene = CG.main.newScene("front_canvas");
+			
+			// setups both canvas
+			front_scene.setup = function() {
+				var p = [.08, .08, .08, .5, .2, 0, 0.9, 0.9, 0.9, 1.0];
+				for (var i = 0; i < 10; i++){
+					// each leaf is draw on a plane with a different noise, 
+					// so they look distorted and slightly different.
+					var plane = CG.shapes.createParametric(1/3,1/3, noise_plane(i));
+
+					// we add the leaf to one of the canvases
+					var leaf, z = Math.cos(i);
+					if (z > 0){
+						leaf = CG.scene.addObject(front_scene, plane, 'uv_mapping');
+					}else{
+						leaf = CG.scene.addObject(back_scene, plane, 'uv_mapping');
+					}
+
+					leaf.setUniform('p', p);
+					leaf.setSampler2D("uSampler", "img/maple_diffuse.jpg");
+					
+					leaf.setSampler2D("uAlphaSampler", "img/maple_alpha.jpg");
+					leaf.basematrix = mat4.multiply(
+						mat4.translation(i/1.7-2.0,0.7,z),
+						mat4.scale(2.0)
+						);
+					leafs.push(leaf);
+				}
+
+			};
+			// update scene of both canvases, doesn't matter in which one they are
+			// we simply update the objects
+			front_scene.update = function(time) {
+				var ldir = vec3.transformMat4([0.57, 0.57, 0.57],mat4.zRotation(Math.cos(time/2.0)));
+				for (var i = 0; i < leafs.length; i++){
+					var leaf = leafs[i];
+					leaf.setUniform('lDir', ldir);
+					leaf.setUniform("textureEnabled", textureEnabled);
+					leaf.setUniform("alphaEnabled", alphaEnabled);
+					leaf.matrix = mat4.multiply(
+						leaf.basematrix,
+						mat4.multiply(
+							mat4.xRotation(0.2*Math.cos((time + i)*2.0)),
+							mat4.yRotation(0.5*Math.cos((time + i)*2.0))
+						)
+						);
+				}
+			};
+			// done in front_scene setup/update
+			back_scene.setup = function() {};
+			back_scene.update = function() {};
+		})();
+      </script>
+
+      <script type="text/javascript">
+	      (function(){
+				var onload = window.onload || function(){};
+				window.onload = function(){
+					onload();
+					CG.main.setClearColor([0.0,0.0,0.0,0.0]);
+					CG.main.initAll();
+					CG.main.run();
+		          }
+	      })();
+        </script>
+    </head>
+    <body class="dark_theme">
+    	<div class="wrapper">
+    		<header id="welcome"> Alpha Map + DOF trick</header>
+    		<section class="left-menu" id ="textures">
+	      		<header> Textures used: </header>
+	      		<div>
+		      	<a class="texture" href="img/maple_diffuse.jpg" target="_blank">
+		      		<img src="img/maple_diffuse.jpg" height="128" />
+		      	</a>
+		      	<a class="alpha" href="img/maple_alpha.jpg" target="_blank">
+		      		<img src="img/maple_alpha.jpg" height="128"/>
+		      	</a>
+		      	
+		      	<div>
+		      		<p>
+		      		Textures from 
+		      			<a href="http://www.magnet-textures.com/en/library/textures/nature/trees/leaves/98" target="_blank" > 
+		      				Magnet Textures
+		      			</a> 
+		      			
+					</p>
+		      		<p> The blur trick is that I use two canvas, one has the leafs of the back and has a CSS filter to make it look blurry</p>
+		      	</div>
+		      </div>
+		  	</section>
+		  	<section class="left-menu" id="controllers">
+		  	<header> Controllers: </header>
+		  	<div>
+		  		<input id="e_texture_map" value="1" type="checkbox" checked="checked"> Texture Map Enabled
+		  	</div>
+		  	<div>
+		  		<input id="e_alpha_map" value="1" type="checkbox" checked="checked"> Alpha Map Enabled
+		  	</div>
+		  </section>
+    		<canvas id="back_canvas" class="leaf blury-canvas", data-render="gl" width="700" height="200"></canvas>
+    		<canvas id="front_canvas" class="leaf" data-render="gl" width="700" height="200"></canvas>
+    	</div>
+    </body>
+</html>

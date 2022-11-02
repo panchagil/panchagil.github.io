@@ -1,0 +1,39 @@
+body{
+	font-family: Verdana, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    background-image: url("../../img/background_grey.png");
+    padding: 20px 10px;
+}
+header {
+	font-size: 1.2em;
+	font-weight: bold;
+}
+
+#controllers {
+	margin-bottom: 10px
+}
+#controllers label {
+	margin-right: 5px;
+}
+#controllers input {
+	border: none;
+	padding-left: 5px;
+	width: 30px;
+	margin-right: 10px;
+}
+#canvas1 {
+	background-color: white;
+	padding: 20px;
+	border-radius: 15px;
+    box-shadow: 0 0 10px #888;
+}
+#canvas {
+	margin: 10px;
+}
+body {
+	width: 550px;
+}
+
+#description header {
+	font-size: 1.0em;
+}

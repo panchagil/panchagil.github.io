@@ -1,0 +1,134 @@
+a{
+    color:black;
+}
+h1,h2,h3{
+    font-size: 1em;
+    margin: 0;
+}
+
+body {
+    font-family: Verdana, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    background-image: url("../img/background_grey.png");
+    padding: 20px 10px;
+}
+#right-column {
+	width: 670px;
+	margin-top: 50px;
+	position: relative;
+	float: right;
+	display: inline-block;
+}
+#left-column{
+	width: 710px;	
+}
+#contact-info {
+	padding-bottom: 10px;
+	border-bottom: 1px solid #666;
+	margin-bottom: 20px; 
+}
+
+#contact-info h1 {
+	font-size: 1.5em;
+}
+#contact-info h2 {
+	font-weight: normal;
+}
+
+.hw {	
+	background-color: white;
+	padding: 20px;
+	border-radius: 15px;
+    box-shadow: 0 0 10px #888;
+    text-align: justify;
+    margin-bottom: 20px;
+    	
+}
+.hw .hw-header {
+	font-size: 1.2em;
+	font-weight: bold;
+}
+.hw-image {
+	display: block;
+	margin-top: 15px;
+	text-align:left;	
+}
+.hw-image a{
+	margin: 0 10px;	
+	display: inline-block;
+}
+.hw-image img {
+	border:1px solid #;
+	-webkit-border-radius: 20px;
+	-moz-border-radius: 20px;
+	border-radius: 20px;  
+	border: 1px solid #ccc;
+}
+.hw-image header{
+	text-align: center;
+	margin-bottom: 3px;
+}
+#hw-menu {
+	padding: 10px;
+}
+#hw-menu ul, #hw-menu li {
+    display: inline-block;    
+    margin: 0 20px 0 0;
+    padding: 0;
+    color: #666;
+}
+#hw-menu li:hover {
+	color: red;	
+}
+
+.experiments{
+	margin-top: 20px;
+	padding: 5px 10px;
+	background: #eeeeee;
+	border:1px solid #;
+	-webkit-border-radius: 20px;
+	-moz-border-radius: 20px;
+	border-radius: 20px;
+}
+.experiments .ex_header {
+	display: inline-block;
+	font-weight: bold;
+}
+
+#hw4_example {
+	margin-top: 20px;
+}
+.change-list header {
+	margin-top: 10px;
+	font-weight: bold;
+}
+
+.final .hw-header {
+	font-size: 1.5em;
+	font-weight: bold;
+	text-align: center;
+}
+
+.final .section-header{
+	font-size: 1.2em;
+	font-weight: bold;
+	text-align: center;	
+}
+
+.final .hw-image {
+	margin: 15px 0 15px 0;
+}
+.final .hw-image header {
+	margin-bottom: 10px;
+}
+
+.table_right {
+	position: relative;
+	float: right;
+	display: inline;
+	right: 20px;
+}
+
+.table_right tr.biggy  td{
+	padding-bottom: 22px;
+}

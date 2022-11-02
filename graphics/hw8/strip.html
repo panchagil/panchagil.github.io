@@ -1,0 +1,204 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main2.css" />
+        <script type="text/javascript" src="shader/libs.js"></script>
+        <script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_shader.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.v1.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+        <!-- SHADERS
+         ========================================================================
+          -->
+        <!-- Phong shader provided by Prof. Perlin -->
+        <script id="fs_phong" type="x-shader/x-fragment">
+          uniform float p[10];
+          uniform vec3 lDir;
+          varying vec3 vNormal;
+
+          void main(void) {
+            vec3 normal = normalize(vNormal);
+            
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                    vec3(p[3],p[4],p[5]) * diffuse +
+                    vec3(p[6],p[7],p[8]) * specular;
+            gl_FragColor = vec4(pow(c.x,0.45),pow(c.y,0.45),pow(c.z,0.45),1.);
+          }
+        </script>
+
+        <!-- Wireframe shader paints back lines in grey-->
+        <script id="wireframe" type="x-shader/x-fragment">
+            varying vec4 vXYZW;
+            
+            void main(void) {
+              if (vXYZW.z > 0.0){
+                gl_FragColor = vec4(0.8, 0.8, 0.8, 1);
+              }
+              else{
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 1);
+              }
+          }
+        </script>
+        <script type="text/javascript">
+        (function() {
+            var puv = [4, 4];
+            var suv = [20, 20];
+
+            // mapping for plane
+            var plane = function(u, v) {
+              return [puv[0] * (u - 0.5), puv[1] * (v - 0.5), 0]
+            }
+
+            // mapping for sphere
+            var sph = function(u, v) {
+              var theta = 2 * Math.PI * u,
+                phi = Math.PI * (v - .5),
+                cosT = Math.cos(theta),
+                cosP = Math.cos(phi),
+                sinT = Math.sin(theta),
+                sinP = Math.sin(phi);
+              return [cosT * cosP, sinT * cosP, sinP];
+            }
+
+            // README: we are going to show the plane an sphere created using the old
+            // createParametirc function and the 'fixed' one
+            // that gives a good use of triangle strips
+            var plane_v1 = CG.shapes_v1.createParametric(1 / puv[0], 1 / puv[1], plane);
+            var plane_v2 = CG.shapes.createParametric(1 / puv[0], 1 / puv[1], plane);
+
+            var sphere_v1 = CG.shapes_v1.createParametric(1 / suv[0], 1 / suv[1], sph);
+            var sphere_v2 = CG.shapes.createParametric(1 / suv[0], 1 / suv[1], sph);
+
+            var options = {
+              color: [.1, .0, 0, .9, .8, 0, 0.5, 0.5, 0.5, 2],
+              lDir: [.57, .57, 0.57]
+            };
+
+            // creates the new/old scenes for the basic plane
+            (function() {
+              var matrix = mat4.scale(1 / 5, 1 / 5, 1);
+              var v1 = CG.main.newScene('plane_v1');
+
+              var setupObj = function(obj) {
+                obj.setUniform('p', options.color);
+                obj.setUniform('lDir', options.lDir);
+                obj.matrix = matrix;
+                obj.drawPrimitive = CG.scene.LINES;
+              }
+
+              v1.setup = function() {
+                var obj = CG.scene.addObject(v1, plane_v1, 'wireframe');
+                setupObj(obj);
+              };
+              v1.update = function() {};
+
+
+              var v2 = CG.main.newScene('plane_v2');
+              v2.setup = function() {
+                var obj = CG.scene.addObject(v2, plane_v2, 'wireframe');
+                setupObj(obj);
+              };
+              v2.update = function() {};
+            })();
+
+            // creates the new/old scenes for the wireframe sphere
+            (function() {
+              var matrix = mat4.scale(0.9);
+              var v1 = CG.main.newScene('sph_v1');
+
+              var setupObj = function(obj) {
+                obj.setUniform('p', options.color);
+                obj.setUniform('lDir', options.lDir);
+                obj.matrix = matrix;
+                obj.drawPrimitive = CG.scene.LINES;
+              }
+
+              v1.setup = function() {
+                var obj = CG.scene.addObject(v1, sphere_v1, 'wireframe');
+                setupObj(obj);
+              };
+              v1.update = function(time) {
+                v1.objects[0].matrix = mat4.xRotation(time);
+              };
+
+
+              var v2 = CG.main.newScene('sph_v2');
+              v2.setup = function() {
+                var obj = CG.scene.addObject(v2, sphere_v2, 'wireframe');
+                setupObj(obj);
+              };
+              v2.update = function(time) {
+                v2.objects[0].matrix = mat4.xRotation(time);
+              };
+            })();
+
+            // creates the new/old scenes for the solid sphere
+            (function() {
+              var matrix = mat4.scale(0.9);
+              var v1 = CG.main.newScene('sph_solid_v1');
+
+              var setupObj = function(obj) {
+                obj.setUniform('p', options.color);
+                obj.setUniform('lDir', options.lDir);
+                obj.matrix = matrix;
+              }
+
+              v1.setup = function() {
+                var obj = CG.scene.addObject(v1, sphere_v1, 'fs_phong');
+                setupObj(obj);
+              };
+              v1.update = function() {};
+
+
+              var v2 = CG.main.newScene('sph_solid_v2');
+              v2.setup = function() {
+                var obj = CG.scene.addObject(v2, sphere_v2, 'fs_phong');
+                setupObj(obj);
+              };
+              v2.update = function(time) {
+              };
+            })();
+
+
+          })();
+        </script>
+        
+        <script type="text/javascript">
+          window.onload = function(){
+            CG.main.setClearColor([1.0,1.0,1.0,1.0]);
+            CG.main.initAll();
+            CG.main.run();
+          }
+        </script>
+    </head>
+    <body>
+      <header id="welcome"> Triangle Strips </header>
+      <p class="readme">You can find the new CreateParametric algorithm <a href="./scripts/cg_shapes.js" target="_black" >here</a></p>
+      <section class="description">
+          <header> Plane</header>
+          <p>Both images show the plane as a LINE_STRIP. On the left we see the points generated by our old 'createParametric' code that did not optimized for STRIPS. You can see that the sequence of lines draw include the for edges of the square. In contrast, the image on the right show the new approach where we only include two points per square, plus some points for edge cases.</p>
+          <canvas id="plane_v1" data-render="gl"      width="200" height="200"></canvas>
+          <canvas id="plane_v2" data-render="gl"      width="200" height="200"></canvas>
+        
+      </section>
+      <section class="description">
+          <header>Sphere</header>
+          <p>The next figures allow us to get an idea of how different the two algorithms are. On the left we show the the points of the old algorithm, and on the right the points of the new. Is easy to see that the meshes are equivalent, and that the new algorithm uses a smaller set of points.</p>
+          <canvas id="sph_v1" data-render="gl"        width="300" height="300"></canvas>
+        <canvas id="sph_v2" data-render="gl"        width="300" height="300"></canvas>
+      </section>
+      <canvas id="sph_solid_v1" data-render="gl"  width="300" height="300"></canvas>
+      <canvas id="sph_solid_v2" data-render="gl"  width="300" height="300"></canvas>
+    </body>
+</html>

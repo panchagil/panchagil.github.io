@@ -1,0 +1,213 @@
+
+<script src="script.js"></script>
+<script id="title" type="text/plain">
+ Object Picking
+</script>
+<script id="description" type="text/plain">
+The shaders implements (i) Ambient Light, (ii) Lambert Reflectance
+(iii) Shadows and (iv) picking object.
+
+You can move the over the objects and the one below the cursor will be highlighted
+with a white border.
+
+</script>
+
+<script id="shader" type="x-shader/x-fragment">
+    // basic colors used
+    const vec3 cyan = vec3(0,1.,1.);
+    const vec3 magenta = vec3(1.,0,1.);
+    const vec3 yellow = vec3(1.,1.,0);
+
+    struct SphereIntersect {
+        float t_0; // closest 't' that solves the intersection
+        float t_1;        
+    };
+    const SphereIntersect NO_INTERSECT = SphereIntersect(-1.0,-1.0); // used as null intersect
+
+    struct Sphere {
+        vec4 center;
+        float radius;
+        vec3 color;
+    };
+
+    struct Ray {
+        vec4 v; //origin
+        vec4 w; //direction
+    };
+
+    struct Hit {
+        Sphere object;
+        SphereIntersect intersect;
+    } NO_HIT; // used as null hit
+
+    //=========== CAMERA ===========
+    const float fl = 5.0;
+    
+    //============ SCENE ============
+
+    // -- objects
+    const int num_circles = 3;
+    // note: apparently we can't initialize the array here
+    Sphere circles [num_circles];
+    const Sphere C1 = Sphere(vec4(0.5, 0.0, 2.0, 1.0), 0.5, cyan);
+    const Sphere C2 = Sphere(vec4(0.0, 0.0, 1.0, 1.0), 0.5, magenta);
+    const Sphere C3 = Sphere(vec4(-0.5, 0.0, 0.0, 1.0), 0.5, yellow);
+    
+
+    // -- lights
+    vec4 SUN1 = vec4(1, -1.0 ,1.0 ,0.0);
+    const float AMBIENT = 0.3;
+
+    // ======= INTERACTION =========
+    vec2 mouse = vec2(-100.0,-100.0);
+    Hit hitMouse = NO_HIT;
+
+    /**
+    * Checks intersection between ray W from V and circle co.
+    * returns t of the intersection. 
+    *
+    **/
+    SphereIntersect getIntersect(Sphere co, Ray ray){
+        vec4 vc = ray.v - co.center;
+        float r = co.radius;
+
+        // quadratic equation to intersect the sphere
+        float b = 2.0 * dot(ray.w, vc);
+        float c = dot(vc, vc) - pow(r,2.0);
+
+        float discriminant = pow(b,2.0) - 4.0 * c;
+        SphereIntersect intersect = NO_INTERSECT;
+        if (discriminant >= 0.0){
+            float root1 = (-b + sqrt(discriminant))/2.0;
+            float root2 = (-b - sqrt(discriminant))/2.0;
+            if (root1 >= 0.0 && root2 >= 0.0){
+                intersect = SphereIntersect(
+                    min(root1, root2),
+                    max(root1, root2)
+                );
+            } else if (root1 < 0.0 && root2 >= 0.0){
+                intersect = SphereIntersect(root2,-1.0);
+            } else if (root1 >= 0.0 && root2 < 0.0){
+                intersect = SphereIntersect(root1,-1.0);
+            }
+        }
+        return intersect;
+    }
+
+    Hit getFirstHit(Ray ray){
+        bool isHit = false;
+        SphereIntersect si = NO_INTERSECT;
+        Sphere object;
+
+        for (int i = 0; i< num_circles; i++){
+            SphereIntersect si_i = getIntersect(circles[i], ray);   
+            if (si_i != NO_INTERSECT && (si == NO_INTERSECT || si_i.t_0 < si.t_0)){
+                si = si_i;
+                object = circles[i];
+                isHit = true;
+            }
+        }
+        if (isHit){
+            return Hit(object, si);
+        }
+        return NO_HIT;
+        
+    }
+    vec4 getHitPoint(Ray ray, Hit hit){
+        return ray.v + hit.intersect.t_0 * ray.w;
+    }
+
+    /**
+    * Paints the pixel vUV with the appropriate color;
+    * 
+    **/
+    void paintPixel(vec2 vUV){
+        vec4 v = vec4(0.0, 0.0, fl, 1.0);
+        vec4 w = normalize(vec4(vUV.x - 0.5, 0.5 - vUV.y , -1.0*fl, 0.0));
+        
+        Ray pixelRay = Ray(v,w);
+        Hit hit = getFirstHit(pixelRay);
+
+        if (NO_HIT != hit){
+            // we are in the 'border' of the sphere if the two t_i are 'close'
+            // -- needs more work to be robust.
+            bool inBorder = abs(hit.intersect.t_0 - hit.intersect.t_1) < 0.2;
+
+            bool mouseHit = hitMouse != NO_HIT && hitMouse.object == hit.object;
+            if (inBorder && mouseHit){
+                gl_FragColor = vec4(1,1,1, 1);        
+            }
+            else{
+                Sphere circle = hit.object;
+
+                // -- properties of the point we hit
+                vec4 s = getHitPoint(pixelRay, hit); //point in the surface of the object we hit
+                vec4 normal  = normalize(s - circle.center);
+
+                // -- ADD ambient light
+                float light = AMBIENT; 
+
+                // -- ADD directional light
+
+                // V = S + eL: we move a little bit from the point s so we don't hit our same object
+                Ray lightRay = Ray(s + 0.01*SUN1, normalize(SUN1)); 
+                if (NO_HIT == getFirstHit(lightRay)){
+                    
+                    float reflectance = max(0.0, dot(normal, SUN1));
+                    light += (1.0-AMBIENT)*reflectance;
+                }
+
+                gl_FragColor = vec4(circle.color * light, 1);        
+            }
+            
+        }
+
+        else {
+          gl_FragColor = vec4(0.2,0.2,0.2,1);      
+        }
+        
+    }
+
+    /** returns the object that is pointed by the mouse
+    **/
+
+    Hit getMouseHit(){
+        vec4 v = vec4(0.0, 0.0, fl, 1.0);
+        vec4 w2 = normalize(vec4(mouse.x - 0.5, 0.5 - mouse.y , -1.0*fl, 0.0));
+        Ray mouseRay = Ray(v,w2);
+        return getFirstHit(mouseRay);
+    }
+
+    /**
+    * Creates the elements that are part of our scene
+    * moves them to their position at time uTime
+    **/
+    void initializeScene(){
+        circles[0] = C1;
+        circles[1] = C2;
+        circles[2] = C3;
+
+        mat4 translation = mat4(
+           1, 0, 0, 0 , // first column 
+           0, 1, 0, 0, 
+           0, 0, 1, -10, // third column
+           0, 0, 0, 1
+        );
+
+        for (int i=0; i< num_circles; i++){
+            circles[i].center = circles[i].center * translation;
+        }
+
+        mouse = vec2(uMouseLocation.x/uViewportSize.x,uMouseLocation.y/uViewportSize.y);
+
+    }
+
+    void main(void) {
+        initializeScene();
+        hitMouse = getMouseHit();
+        paintPixel(vUV);
+
+    }
+</script>
+
+<script>start()</script>

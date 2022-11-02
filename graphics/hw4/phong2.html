@@ -1,0 +1,420 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="script.js"></script>
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Phong Shading
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+The shader is a simple test for (i) phong shading.
+Only one light in the scene. Light at infinity.
+
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+
+
+#define M_PI 3.1415926535897932384626433832795
+
+
+// ============= The MATRIX =============== //
+
+mat4 transpose(mat4 m){
+    return mat4(
+        m[0][0],m[1][0],m[2][0], m[3][0],
+        m[0][1],m[1][1],m[2][1], m[3][1],
+        m[0][2],m[1][2],m[2][2], m[3][2],
+        m[0][3],m[1][3],m[2][3], m[3][3]
+        );
+}
+/** Inverse rotation matrix about y-axis
+*/
+mat4 ryMatrix(float rad){
+    return mat4(
+       cos(rad), 0, sin(rad), 0, // first column 
+       0, 1, 0, 0, 
+       -sin(rad), 0, cos(rad), 0, // third column
+       0, 0, 0, 1
+    );
+}
+/** Inverse rotation matrix about x-axis
+*/
+mat4 rxMatrix(float rad){
+    return mat4(
+       1, 0, 0, 0, // first column 
+       0, cos(rad), sin(rad), 0, 
+       0, -sin(rad), cos(rad), 0, // third column
+       0, 0, 0, 1
+    );
+}
+
+/** Inverse rotation matrix about x-axis
+*/
+mat4 rzMatrix(float rad){
+    return mat4(
+       cos(rad), sin(rad), 0, 0, // first column 
+       -sin(rad), cos(rad), 0, 0,
+       0, 0, 1, 0, // third column
+       0, 0, 0, 1
+    );
+}
+/** Inverse translation matrix
+*/
+mat4 tMatrix(vec3 t){
+    return mat4(
+        1.0, 0.0, 0.0, 0.0, 
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0, 
+        -t.x,-t.y,-t.z, 1.0
+    );
+}
+
+/** Inverse scale matrix
+*/
+mat4 sMatrix(vec3 s_){
+    vec3 s = 1.0/s_;
+    return mat4(
+        s.x, 0.0, 0.0, 0.0, 
+        0.0, s.y, 0.0, 0.0,
+        0.0, 0.0, s.z, 0.0, 
+        0.0, 0.0, 0.0, 1.0
+    );
+}
+
+// ============== All Shapes ==========//
+struct Light{
+    vec4 position;
+    vec3 color; 
+};
+
+struct Material {
+    vec3 ambient; //ambient
+    vec3 diffuse; //diffuse
+    vec3 specular; //specular
+    float power;
+};
+
+const vec3 white = vec3(1,1,1);
+const Material dMaterial = Material(white, white, white,1.0);
+
+struct Hit{
+    float t_en ;
+    float t_ex;
+    Material material;
+    vec4 normal;
+    bool isHit;
+};
+
+Hit newHit(float t_en, float t_ex, Material material, vec4 normal){
+    return Hit(t_en, t_ex, material, normal, true);
+}
+Hit newHit(float t_en, float t_ex, vec4 normal){
+    return Hit(t_en, t_ex, dMaterial, normal, true);
+}
+
+#define MIN_ENTER -100000000.0
+#define MAX_EXIT 100000000.0
+const Hit NO_HIT = Hit(-1.0, -1.0, dMaterial, vec4(0,0,0,0), false);
+const Hit INSIDE = Hit(MIN_ENTER, MAX_EXIT, dMaterial, vec4(0,0,0,0), true);
+
+
+// ============= CUBE =============== //
+
+struct Cube{
+    Material material;
+    mat4 transform;
+};
+
+Cube newCube(Material material){
+    return Cube(material, mat4(1)); 
+}
+
+Hit hitPlane(vec4 plane, vec4 v, vec4 w){
+    vec4 L = plane;
+    float lw = dot(L,w);
+
+    bool outside = (lw == 0.0) && (dot(L,v) > 0.0);
+    bool inside = (lw == 0.0) && (dot(L,v) < 0.0);
+    if (outside)return NO_HIT;
+    if (inside) return INSIDE;
+
+    float enters = MIN_ENTER;
+    float exits = MAX_EXIT;
+    if (lw < 0.0){ // ray enters
+        enters = -1.0*dot(L,v)/lw;
+    }
+    else{
+        exits = -1.0*dot(L,v)/lw;
+    } 
+    return newHit(enters, exits, normalize(vec4(plane.xyz,0)));
+}
+
+Hit hitCube(Cube cube, vec4 v, vec4 w){
+    vec4 planes[6];
+    planes[0] = vec4(0,0,1,-1);     // front
+    planes[1] = vec4(0,0,-1,-1);    // back
+    planes[2] = vec4(-1,0,0,-1);   // left
+    planes[3] = vec4(1,0,0,-1);     // right
+    planes[4] = vec4(0,1,0,-1);     // bottom
+    planes[5] = vec4(0,-1,0,-1);   // top
+  
+    float enters = MIN_ENTER;
+    float exits = MAX_EXIT;
+    vec4 normal;
+
+    for (int i = 0; i < 6; i++){
+        vec4 L = planes[i]*cube.transform;
+        float lw = dot(L,w);
+
+        Hit h = hitPlane(L, v, w);
+        if(!h.isHit) return NO_HIT;
+
+        if (h.t_en >= enters){
+            enters = h.t_en;
+            normal = h.normal;
+        }
+        exits = min(exits, h.t_ex);
+     } 
+    
+    if (enters <= exits && enters >= 0.0){
+        return newHit(enters, exits, cube.material, normal);
+    }
+    
+    return NO_HIT;   
+}
+
+// ============ QUADRATICS ============ //
+struct Quadratic {
+    Material material;
+    mat4 L;
+    mat4 transform;
+};
+
+/**
+* Infinite double cone on z-plane
+**/
+Quadratic newCone(Material material){
+    mat4 L = mat4(
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, -1, 0,
+        0, 0, 0, 0 
+        );
+    return Quadratic(material, L, mat4(1));
+}
+
+/**
+* Infinite cylinder on z-plane
+**/
+Quadratic newCylindre(Material material){
+    mat4 L = mat4(
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, -1 
+        );
+    return Quadratic(material, L, mat4(1));
+}
+
+Quadratic newSphere(Material material){
+    mat4 L = mat4(
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, -1 
+        );
+    return Quadratic(material, L, mat4(1));
+}
+
+Hit hitQuadratic(Quadratic q, vec4 v, vec4 w){
+    
+    mat4 Q = transpose(q.transform) * q.L * q.transform;
+    float a = Q[0][0];
+    float f = Q[1][0] + Q[0][1];
+    float e = Q[2][0] + Q[0][2];
+    float g = Q[3][0] + Q[0][3];
+    float b = Q[1][1];
+    float d = Q[2][1] + Q[1][2];
+    float h = Q[3][1] + Q[1][3];
+    float c = Q[2][2];
+    float i = Q[3][2] + Q[2][3];
+    float j = Q[3][3];
+
+    float A = a * pow(w.x,2.0) + b * pow(w.y,2.0) + c * pow(w.z,2.0) + d * w.y * w.z + e * w.z * w.x + f * w.x * w.y;
+    float B = 2.0*(a*v.x*w.x + b*v.y*w.y + c*v.z*w.z) + d*(v.y*w.z + v.z * w.y) + e*(v.z*w.x + v.x*w.z) + f*(v.x*w.y + v.y*w.x) + g*w.x + h*w.y + i*w.z;
+    float C = a*pow(v.x,2.0) + b*pow(v.y,2.0) + c*(pow(v.z,2.0)) + d*v.y*v.z + e*v.z*v.x + f*v.x*v.y + g*v.x + h*v.y + i*v.z + j;
+
+    float discriminant = pow(B,2.0) - 4.0 * A * C;
+    float t_en = -1.0; // enter
+    float t_ex = -1.0; // exit
+    if (discriminant >=0.0){
+        float root = sqrt(discriminant);
+        float a2 = 2.0*A;
+        
+        float root1 = (-B + root)/a2;
+        float root2 = (-B - root)/a2;
+
+        t_en = min(root1, root2);
+        t_ex = max(root1, root2);
+        
+    }
+    vec4 P = v + t_en*w;
+    vec4 N = vec4(
+        2.0*a*P.x + e*P.z + f*P.y + g, 
+        2.0*b*P.y + d*P.z + f*P.x + h, 
+        2.0*c*P.z + d*P.y + e*P.x + i, 0
+        );
+    return  newHit(t_en, t_ex, q.material, normalize(N));
+}
+
+//=========== INTERSECTION ========= //
+
+/** Shape formed by the intersection of
+    1 quads
+    2 planes
+**/
+struct Shape{
+    Quadratic quad;
+    vec4 planes[2];
+    mat4 transform;
+    Material material;
+};
+
+/** TODO: this needs fixing, 
+    it assumes the ray will only enter-exit the cone
+**/
+Shape newUnitCone(Material material){
+    Quadratic cone = newCone(material);
+    cone.transform = 
+        rxMatrix(-90.0 * M_PI /180.0);
+
+    vec4 planes[2];
+    planes[0]  = vec4(0,-1,0,-1)*tMatrix(vec3(0.0,1.0,0.0));  // top
+    planes[1]  = vec4(0,1,0,-1)*tMatrix(vec3(0.0,1.0,0.0));  // bottom
+    return Shape(cone, planes, mat4(1), material);
+}
+/**
+* Intersects a infinite cylinder with two planes (top-bottom)
+*/
+Shape newUnitCylinder(Material material){
+    Quadratic cylindre = newCylindre(material);
+    cylindre.transform = 
+        rxMatrix(-90.0 * M_PI /180.0);
+
+    vec4 planes[2];
+    planes[0]  = vec4(0,-1,0,-1)*tMatrix(vec3(0.0,1.0,0.0));  // top
+    planes[1]  = vec4(0,1,0,-1)*tMatrix(vec3(0.0,1.0,0.0));  // bottom
+    return Shape(cylindre, planes, mat4(1), material);
+}
+
+Hit hitShape(Shape shape, vec4 v, vec4 w){
+    Hit hit[3];
+    hit[0] = hitQuadratic(shape.quad,v,w);
+    hit[1] = hitPlane(shape.planes[0],v,w);
+    hit[2] = hitPlane(shape.planes[1],v,w);
+
+    float enters = MIN_ENTER;
+    float exits = MAX_EXIT;
+    vec4 normal;
+
+    for (int i = 0; i < 3; i++){
+        Hit h = hit[i];
+        if (!h.isHit) return NO_HIT;
+
+        if (h.t_en >= enters){
+            enters = h.t_en;
+            normal = h.normal;
+        }
+        exits = min(exits, h.t_ex);  
+    }
+
+    if (enters <= exits && enters > 0.0){
+        return newHit(enters, exits, shape.material, normal);
+    }
+    return NO_HIT;
+}
+
+
+// ========== SCENE ================= //
+
+#define N_CUBES 1
+#define N_QUADS 1
+#define N_SHAPES 1
+#define N_LIGHTS 1
+
+const float fl = 5.0;
+vec4 L1 = normalize(vec4(-0.5,-0.3,0.5 ,0.0));
+const float AMBIENT = 0.3;
+const vec4 TOP = vec4(0,-1,0,0); // at y = 0
+
+Light lights[N_LIGHTS];
+Quadratic sphere;
+vec4 plane;
+
+#define HIT_TEST(h, hit) if (h.t_en >= 0.0 && (h.t_en < hit.t_en || hit.t_en < 0.0)) hit = h
+Hit getFirstHit(vec4 v, vec4 w){
+    Hit hit = NO_HIT;
+    Hit h = hitQuadratic(sphere,v,w);
+    HIT_TEST(h,hit);
+    return hit;
+}
+
+#define CLAMP_COLOR(color) vec3(clamp(color.x,0.0,1.0),clamp(color.y,0.0,1.0),clamp(color.z,0.0,1.0))
+vec4 getPixelColor(vec2 uv){  
+    vec4 v = vec4(0.0, 0.0, fl, 1.0);
+    vec4 w = normalize(vec4(uv.x - 0.5, 0.5 - uv.y , -1.0*fl, 0.0));
+
+    Hit hit  = getFirstHit(v, w);
+    if (hit.t_en < 0.0){
+        return vec4(0,0,0,1);   
+    }
+    
+    vec4 s = v + hit.t_en * w;
+    vec3 color = hit.material.ambient;
+
+    for (int i =0; i < N_LIGHTS; i++){
+        Light light = lights[i];
+        vec4 L = normalize(vec4(light.position.xyz,0));
+        if(!getFirstHit(s + 0.0001 * L, L).isHit){
+           // with this form of calculating the highlight we don't
+            // need to check if is negative. And for some reason the other 
+            //way behave odd in windows.
+            vec4 h = normalize(L - w);
+
+            vec3 cd = hit.material.diffuse*max(0.0, dot(hit.normal, L));
+            vec3 cs = hit.material.specular*pow(dot(h,hit.normal),hit.material.power);
+            color = color + light.color * (CLAMP_COLOR(cd) + CLAMP_COLOR(cs)); 
+        }
+        
+    }
+    return vec4(CLAMP_COLOR(color), 1);
+}
+
+const Material sMaterial = Material(vec3(0.0,0.0,0.1),vec3(0.8,0.1,0.7), vec3(0.146,1.0,0.975), 12.0);
+
+void createScene(){
+    
+    sphere = newSphere(sMaterial);
+    sphere.transform = tMatrix(vec3(0,0,-20));
+
+    // lights
+    lights[0] = Light(normalize(vec4(-0.5,-0.3,0.5,0.0)), vec3(1,1,1)); // white sun light
+
+}
+void main(void) {
+    createScene();
+    gl_FragColor = getPixelColor(vUV);
+}
+
+
+</script>
+
+<script>start()</script>

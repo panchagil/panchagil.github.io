@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="scripts/matrix.js"></script>
+		<script type="text/javascript" src="scripts/animationFrame.js"></script>
+		<script type="text/javascript" src="scripts/cg_main.js"></script>
+		<script type="text/javascript" src="scripts/cg_shapes.js"></script>
+		<script type="text/javascript">
+		(function(window) {
+			var sphere;
+			var io_radius = 15.0,
+				io_sections = 5;
+			/**
+			 * Add listeners to the html-inputs of #sections and radius
+			 * When changed the sphere is updated using the new definition
+			 * of the grid
+			 **/
+			var addListeners = function() {
+				var sections = document.getElementById("grid.sections");
+				var radius = document.getElementById("grid.radius");
+
+				// set initial values
+				sections.value = io_sections;
+				radius.value = io_radius;
+
+				// add listeners to update in the future
+				sections.onchange = function() {
+					io_sections = sections.value;
+					updateSphere();
+				}
+				radius.onchange = function() {
+					io_radius = radius.value;
+					updateSphere();
+				}
+			}
+			var updateSphere = function() {
+				sphere = CG.shapes.sphere(io_sections, io_radius / 10);
+			}
+
+			updateSphere();
+
+
+			/**
+			 * Draws the sphere on the canvas.
+			 * Gets call by CG.main on each tick
+			 **/
+			var animate = function(time) {
+				time = time || 0;
+
+				// clear the canvas
+				CG.main.clear();
+
+				var x = Math.cos(time) / 2;
+				var y = Math.sin(time) / 2;
+				var matrix = mat4.yRotation(x);
+
+				// draw the edges
+				var colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff'];
+				for (var i = 0; i < sphere.faces.length; i++) {
+					var face = sphere.faces[i];
+					face.color = colors[i % colors.length];
+
+					CG.main.draw(face, matrix);
+
+				}
+
+			}
+
+			// assign our animation function 
+			CG.scene.animate = animate;
+
+			var original_onload = window.onload || function() {};
+			window.onload = function() {
+				original_onload();
+				addListeners();
+			}
+
+
+		})(window);
+		</script>
+		<link rel="stylesheet" href="css/main.css" />
+	</head>
+	<body>
+	<header>
+		Matrix Transformations and meshed based Sphere
+	</header>
+	<p>The algorithm for the sphere is the one we saw in class. We subdivide each of the six faces of a  unit cube into a mesh, and then "inflate" the cube.</p>
+
+	<p>You can modify the number of subdivisions of the grid, and radius of the sphere</p>
+	<section id="controllers">
+		<label>grid subdivisions</label><input id="grid.sections" type="number" min="4" value="4"/>
+		<label>sphere radius</label><input id="grid.radius" type="number" min="1" value="4"/>
+	</section>
+	<section id="canvas">
+		<canvas id="canvas1" width="400", height="400"></canvas>
+	</section>
+	<section id="description">
+		<header> Description of modules of the project </header>
+		<dl>
+			<dt><a href="scripts/animationFrame.js">animationFrame.js</a></dt>
+			<dd>RequestAnimationFrame polyfill by Erik Moller. fixes from Paul Irish and Tino Zijdel</dd>
+			<dt><a href="scripts/matrix.js">matrix.js</a></dt>
+			<dd>Implementation of Matrix transformations an vector related functions</dd>
+			<dt><a href="scripts/cg_main.js">cg_main.js</a> <dt>
+			<dd>Original code of Prof. Perlin for this hw. Includes refactor to add module pattern, and expose only functionality needed by other modules.
+			</dd>
+			<dt><a href="scripts/cg_shapes.js">cg_shapes.js</a> <dt>
+			<dd>Code for generating the sphere and other shapes<dd>
+			</dt>
+		</dl>
+	</section>
+	</body>
+</html>

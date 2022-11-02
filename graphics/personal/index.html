@@ -1,0 +1,57 @@
+
+<!! ASSIGNMENT DUE WEDNESDAY SEPTEMBER 18, 2013 FOR KEN PERLIN'S GRAPHICS CLASS>
+
+<script src="vendor/CodeMirror/codemirror.js"></script>   
+<script src="vendor/CodeMirror/mode/glsl.js"></script>
+<link rel="stylesheet" href="vendor/CodeMirror/codemirror.css">  
+<link rel="stylesheet" href="vendor/CodeMirror/theme/monokai.css">
+<link rel="stylesheet" href="style/editor.css">
+<script type="text/javascript" src="scripts/editor.js"></script>
+><script type="text/javascript" src="scripts/noise.js"></script>
+><script type="text/javascript" src="scripts/script.js"></script> 
+
+<!! REPLACE THE TEXT BELOW WITH A TITLE FOR YOUR SHADER>
+
+<script id="title" type="text/plain">
+Dragon Planet
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain">
+
+</script>
+
+<!! REPLACE THE TEXT BELOW WITH YOUR SHADER CODE>
+
+<script id="shader" type="x-shader/x-fragment">
+void main(void) {
+    float x = 2.*vUV.x-1.,y = 2.*vUV.y-1.,z = sqrt(1.-x*x-y*y);
+    float cRot = cos(.2*uTime), sRot = sin(.2*uTime);
+    float cVar = cos(.1*uTime), sVar = sin(.1*uTime);
+    vec3 pt = vec3(cRot*x+sRot*z+cVar, y, -sRot*x+cRot*z+sVar);
+    float g = turbulence(pt);                     /* CLOUDS */
+
+    vec2 v = 1.2 * (vUV - vec2(.5,.5));           /* SHAPE */
+    float d = 1. - 4.1 * dot(v,v);
+    float s = .3*x + .3*y + .9*z; s *= s; s *= s; /* LIGHT */
+    d = d>0. ? .1+.05*g+.6*(.1+g)*s*s : d>-.1 ? d+.1 : 0.;
+
+    float f = -.2 + sin(4. * pt.x + 8. * g + 4.); /* FIRE */
+    f = f > 0. ? 1. : 1. - f * f * f;
+    if (d <= 0.1)
+       f *= (g + 5.) / 3.;
+
+    vec4 color = vec4(d*f*f*.85, d*f, d*.7, 1);   /* COLOR */
+
+    if (d <= .05) {                               /* STARS */
+       float t = noise(vec3(80.*x-uTime, 80.*y+.3*uTime, 1));
+       if ((t = t*t*t*t) > color.x)
+          color = vec4(t,t,t,1);
+    }
+
+    gl_FragColor = color;
+}
+</script>
+
+<script>start()</script>

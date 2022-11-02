@@ -1,0 +1,10 @@
+.glow {
+	z-index: 1;
+	-webkit-animation: glowEffect 1s alternate infinite;
+}  
+      
+@-webkit-keyframes glowEffect {  
+   0% { -webkit-filter: drop-shadow(0px 0px 5px rgba(0, 255, 255, 1.0)) hue-rotate(30deg) brightness(90%) contrast(100%); }  
+   50% { -webkit-filter: drop-shadow(0px 0px 10px rgba(0, 255, 255, 1.0)) hue-rotate(60deg) brightness(100%) contrast(120%); }  
+   100% { -webkit-filter: drop-shadow(0px 0px 15px rgba(0, 255, 255, 1.0)) hue-rotate(90deg) brightness(110%) contrast(150%); }     
+}  

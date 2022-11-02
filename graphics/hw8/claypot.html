@@ -1,0 +1,278 @@
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+        <link rel="stylesheet" href="css/main.css" />
+        <script type="text/javascript" src="shader/libs.js"></script>
+        <script type="text/javascript" src="scripts/animationFrame.js"></script>
+        <script type="text/javascript" src="scripts/perlin_noise.js"></script>
+        <script type="text/javascript" src="scripts/matrix.js"></script>
+        <script type="text/javascript" src="scripts/cg_shader.js"></script>
+        <script type="text/javascript" src="scripts/cg_scene.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.js"></script>
+        <script type="text/javascript" src="scripts/cg_shapes.v1.js"></script>
+        <script type="text/javascript" src="scripts/cg_main.js"></script>
+
+         <!-- We add a small script that reads that data-include list and adds the extra
+        code to our shader. In this case the gamma correction and perlin noise functions 
+        are added
+
+        The shader reads a texture for the color, and another one that works as a mask 
+        to select the zones that are going to have normal noise.
+         -->
+        <script id="uv_mapping" type="x-shader/x-fragment" data-include="glsl_gammacorrect;glsl_noise">
+          uniform sampler2D uSampler;
+          uniform sampler2D uMaskSampler;
+          uniform float p[10];
+          uniform vec3 lDir;
+          uniform bool textureEnabled;
+          uniform bool normalEnabled;
+          varying vec3 vNormal;
+          varying vec2 vUV;
+          varying vec4 vXYZW;
+          varying vec3 vXYZ;
+
+          vec3 vec3Noise(vec3 p){
+				float x = noise(p.xyz);
+				float y = noise(p.xyz);
+				float z = noise(p.xyz);
+				return vec3(x,y,z);
+		  }
+
+          void main(void) {
+
+          	vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+          	vec3 mask = ungammaCorrect(texture2D(uMaskSampler, vUV).xyz);
+            vec3 normal = normalize(vNormal);
+            vec3 lDir = normalize(lDir);
+
+            if (normalEnabled ){
+            	normal = normal - (mask.x < 0.5 ? 0.0: 0.2)*vec3Noise(vXYZ*20.0);
+            	normal = normalize(normal);
+            }
+            
+            float ldn = dot(lDir, normal);
+            float diffuse = max(0., ldn);
+            
+            vec3 refl = 2. * ldn * normal - lDir;
+            float specular = pow(max(0., refl.z), p[9]);
+            
+            vec3 c = vec3(p[0],p[1],p[2]) +
+                     vec3(p[3],p[4],p[5]) * diffuse +
+                     vec3(p[6],p[7],p[8]) * specular;
+
+            if (textureEnabled){
+            	c = c * trgb;
+            }
+            gl_FragColor = vec4(gammaCorrect(c), 1.);
+          }
+      </script>
+      <script type="text/javascript">
+        (function() {
+        	
+        	// MESHES
+        	// ------------
+        	var iterations = 3;
+			var steps = 50;
+
+			var spline_clay1 = CG.shapes.bspline([
+				3.0, 8.0, 0.0,
+				3.2, 7.5, 0.0,
+				2.7, 7.0, 0.0,
+				4.5, 4.0, 0.0,
+				2.2, 0.3, 0.0,
+				2.2, 0.0, 0.0,
+				0.0, 0.0, 0.0
+			], iterations);
+
+			var spline_clay2 = CG.shapes.bspline([
+				3.0, 7.6, 0.0,
+				3.2, 7.3, 0.0,
+				2.7, 7.0, 0.0,
+				5.0, 4.0, 0.0,
+				2.2, 0.3, 0.0,
+				2.2, 0.0, 0.0,
+				0.0, 0.0, 0.0
+			], iterations);
+
+			var potGen = function(pts, steps){
+				var spline = pts;
+				var spline_items = spline.length / 3.0;
+				return function(u, v) {
+					if (v < 0) {
+						v = 0 - v;
+					} else if (v > spline_items - 1) {
+						v = 2 * spline_items - 1 - v;
+					}
+
+					var pt = [spline[v * 3 + 0], spline[v * 3 + 1], spline[v * 3 + 2]];
+					var angle = Math.PI * -2 * u / steps;
+					pt = vec3.transformMat4(pt, mat4.yRotation(angle));
+
+					
+					return pt;
+				}
+			}
+
+			var pot1Mesh = CG.shapes.createParametricDiscrete(
+					steps, 
+					spline_clay1.length/3.0, 
+					potGen(spline_clay1, steps)
+					);
+			
+			var pot2Mesh = CG.shapes.createParametricDiscrete(
+					steps, 
+					spline_clay2.length/3.0, 
+					potGen(spline_clay2, steps)
+					);
+
+			
+			// HTML Events setup
+        	// ------------
+			var onload = window.onload || function(){};
+				window.onload = function(){
+					onload();
+					var textureEl = document.getElementById("e_texture_map");
+					textureEl.onclick = function(){
+						textureEnabled = this.checked;	
+						var someElem = document.querySelectorAll('.texture');
+						for (var i = 0; i < someElem.length; i++) {
+						    someElem[i].classList.toggle('greyscale');
+						}
+					}
+
+					var normalEL = document.getElementById("e_normal_map");
+					normalEL.onclick = function(){
+						normalEnabled = this.checked;	
+						var someElem = document.querySelectorAll('.mask');
+						for (var i = 0; i < someElem.length; i++) {
+						    someElem[i].classList.toggle('greyscale');
+						}
+					}
+				}
+
+			// WEBGL Scene setup
+        	// ------------
+			var textureEnabled = true;
+			var normalEnabled = true;
+
+			var clayPot1, clayPot2, floor;
+			var scene = CG.main.newScene("canvas");
+
+			scene.setup = function() {
+				var p = [.08, .08, .08, .5, .2, 0, 0.9, 0.9, 0.9, 1.0];
+				
+				clayPot1 = CG.scene.addObject(scene, pot1Mesh, 'uv_mapping');
+
+				// I modify the code to be able to add any number of 2d samplers
+				clayPot1.setSampler2D("uSampler", "img/cgreen.jpg");
+				clayPot1.setSampler2D("uMaskSampler", "img/cgreen_mask.jpg");
+				clayPot1.setUniform('p', p);
+				
+				clayPot2 = CG.scene.addObject(scene, pot2Mesh, 'uv_mapping');
+				clayPot2.setSampler2D("uSampler", "img/cred.jpg");
+				clayPot2.setSampler2D("uMaskSampler", "img/cred_mask.jpg");
+				clayPot2.setUniform('p', p);
+
+				// we are going to save the base transformation
+				// so we don't have to calculate it in each frame.
+				clayPot1.basematrix = mat4.multiply(
+					mat4.xRotation(0.2),
+						mat4.multiply(
+							mat4.scale(0.1),
+							mat4.translation(4,-4,0)
+						)
+					);
+
+
+				clayPot2.basematrix = mat4.multiply(
+					mat4.xRotation(0.2),
+						mat4.multiply(
+							mat4.scale(0.1),
+							mat4.translation(-5,-4,0)
+						)
+					);
+
+			};
+			scene.update = function(time) {
+				var ldir = vec3.transformMat4([0.57, 0.57, 0.57],mat4.zRotation(Math.cos(time/2.0)));
+				
+				clayPot1.setUniform('lDir', ldir);
+				clayPot1.setUniform("normalEnabled", normalEnabled);
+				clayPot1.setUniform("textureEnabled", textureEnabled);
+
+				clayPot2.setUniform('lDir', ldir);
+				clayPot2.setUniform("normalEnabled", normalEnabled);
+				clayPot2.setUniform("textureEnabled", textureEnabled);
+
+
+				var rot = mat4.yRotation(time/2.0);
+				clayPot1.matrix = mat4.multiply(
+						clayPot1.basematrix,
+						rot
+				);
+
+				clayPot2.matrix = mat4.multiply(
+						clayPot2.basematrix,
+						rot
+					);
+			};
+
+			
+		})();
+      </script>
+
+      <script type="text/javascript">
+	      (function(){
+				var onload = window.onload || function(){};
+				window.onload = function(){
+					onload();
+					CG.main.setClearColor([0.0,0.0,0.0,0.0]);
+					CG.main.initAll();
+					CG.main.run();
+		          }
+	      })();
+        </script>
+    </head>
+    <body class="light_theme">
+    	<div class="wrapper">
+    		<header id="welcome"> Texture Mapping and Normal Noise </header>
+	      <section class="left-menu" id ="textures">
+	      		<header> Textures used: </header>
+	      		<div>
+		      	<a class="texture" href="img/cred.jpg" target="_blank">
+		      		<img src="img/cred.jpg" width="120" />
+		      	</a>
+		      	<a class="mask" href="img/cred_mask.jpg" target="_blank">
+		      		<img src="img/cred_mask.jpg" width="120"/>
+		      	</a>
+		      	<a class="texture" href="img/cgreen.jpg" target="_blank">
+		      		<img src="img/cgreen.jpg" width="120"/>
+		      	</a>
+		      	<a class="mask" href="img/cgreen_mask.jpg" target="_blank">
+		      		<img src="img/cgreen_mask.jpg" width="120"/>
+		      	</a>
+		      	<div>
+		      		<p>
+		      		Textures were generated using 
+		      			<a href="http://www.gimp.org/" target="_blank" > 
+		      				Gimp
+		      			</a> 
+		      			
+					</p>
+		      	</div>
+		      </div>
+		  </section>
+		  <section class="left-menu" id="controllers">
+		  	<header> Controllers: </header>
+		  	<div>
+		  		<input id="e_texture_map" value="1" type="checkbox" checked="checked"> Texture Map Enabled
+		  	</div>
+		  	<div>
+		  		<input id="e_normal_map" value="1" type="checkbox" checked="checked"> Normal Map Enabled
+		  	</div>
+		  </section>
+	      <canvas id="canvas" data-render="gl" width="700" height="700"></canvas>
+	    </div>
+    </body>
+</html>
