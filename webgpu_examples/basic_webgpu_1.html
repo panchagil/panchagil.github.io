@@ -1,0 +1,110 @@
+<html>
+    <head>
+    </head>
+    <body>
+        <h2> Basic WebGPU Example </h2>
+        <div id="canvasHolder">
+        <canvas id="webgpuCanvas" width="512" height="512"></canvas>
+        </div>
+    </body>
+    <script>
+        async function main() {
+            if (!navigator.gpu) {
+                throw Error("WebGPU not supported in this browser.");
+            }            
+            console.log("WebGPU found", navigator.gpu);
+
+            const adapter = await navigator.gpu.requestAdapter();
+            if (!adapter) {
+                throw Error("WebGPU is supported, but couldn't get WebGPU adapter.");
+            }
+            console.log("Adapter found", adapter);
+
+            // Device : programmers interface to most webgpu features
+            const device = await adapter.requestDevice();
+
+            const canvas = document.getElementById("webgpuCanvas");
+            const context = canvas.getContext("webgpu");
+            const format = navigator.gpu.getPreferredCanvasFormat();
+
+            context.configure({
+                device: device,
+                format: format
+            });
+
+            // We create the data for a single triangle. 
+            // We define the data to be the vertices position in 2D
+            const vertices = new Float32Array([
+                0.0,  0.5, // vertex 1
+                -0.5, -0.5,  // vertex 2
+                0.5, -0.5,   // vertex 3
+            ]);
+
+
+            // Create vertex buffer. This is a buffer created in the GPU
+            // We first allocate the memory
+            const vertexBuffer = device.createBuffer({
+                size: vertices.byteLength,
+                usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+            });
+            // This instructs webgpu to move the data to the GPU, but 
+            // it is done async (thus the queue)
+            device.queue.writeBuffer(vertexBuffer, 0, vertices);
+
+            // Shaders are the programs that will run in the GPU using our
+            // buffer as input.
+            const shaderModule = device.createShaderModule({
+                code: `
+                @vertex
+                fn vs(@location(0) pos: vec2f) -> @builtin(position) vec4f {
+                    return vec4f(pos, 0.0, 1.0);
+                }
+
+                @fragment
+                fn fs() -> @location(0) vec4f {
+                    return vec4f(1.0, 0.3, 0.2, 1.0); // hardcoded orange-red
+                }
+                `
+            });
+            // Pipeline 
+            const pipeline = device.createRenderPipeline({
+                layout: 'auto',
+                vertex: {
+                module: shaderModule,
+                entryPoint: 'vs',
+                buffers: [{
+                    arrayStride: 8, // 2 floats * 4 bytes
+                    attributes: [
+                        { shaderLocation: 0, offset: 0, format: 'float32x2' },  // position
+                    ]
+                }]
+                },
+                fragment: {
+                    module: shaderModule,
+                    entryPoint: 'fs',
+                    targets: [{ format }]
+                    },
+                primitive: { topology: 'triangle-list' }
+            });
+
+            // Render
+            const encoder = device.createCommandEncoder();
+            const pass = encoder.beginRenderPass({
+                colorAttachments: [{
+                view: context.getCurrentTexture().createView(),
+                clearValue: { r: 0.1, g: 0.1, b: 0.2, a: 1 },
+                loadOp: 'clear',
+                storeOp: 'store'
+                }]
+            });
+
+            pass.setPipeline(pipeline);
+            pass.setVertexBuffer(0, vertexBuffer);
+            pass.draw(3);
+            pass.end();
+            device.queue.submit([encoder.finish()]);
+
+        }
+        main();
+    </script>
+</html>
