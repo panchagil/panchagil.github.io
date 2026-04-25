@@ -23,6 +23,7 @@ button { padding: 8px 12px; margin-right: 6px; }
 
   <button onclick="pasteClipboard()">Pegar</button>
   <button onclick="makeCode()">Generar QR</button>
+  <button onclick="clearText()">Limpiar</button>
 
 <div id="qrcode"></div>
 
@@ -46,6 +47,12 @@ button { padding: 8px 12px; margin-right: 6px; }
       qrcode.makeCode(elText.value);
     }
 
+    function clearText() {
+      const el = document.getElementById("text");
+      el.value = '';
+      autoResize(el);
+      el.focus();
+    }
     async function pasteClipboard() {
       try {
         const text = await navigator.clipboard.readText();
